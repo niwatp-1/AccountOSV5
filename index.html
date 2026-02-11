@@ -334,10 +334,57 @@
             const handleSaveSettings = async () => { setIsSubmitting(true); try { let url = settingsForm.photoURL; if(url && url.startsWith('data:') && GOOGLE_SCRIPT_URL) { try { const res = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'uploadProfileImage', username: user.username, image: url }) }); const r = await res.json(); if(r.url) url = r.url; } catch(e){} } const u = { ...user, ...settingsForm, photoURL: url }; if(!settingsForm.password) delete u.password; setUser(u); localStorage.setItem('b2b_current_user', JSON.stringify(u)); if(GOOGLE_SCRIPT_URL) await updateUserInSheet(u); showToast("Saved"); setImgError(false); } catch(e) { showToast("Error"); } finally { setIsSubmitting(false); } };
             const seedData = async () => { setLoading(true); const demos = [{ name: 'Demo Corp', contact: 'Mr. A', phone: '0999999999', category: B2B_CATEGORIES[0], tier: 'Standard', status: 'Active' }]; for(const c of demos) { const id = await handleSaveData('customers', c); await handleSaveData('activities', { customerId: id, type: 'System', note: 'Demo', by: user?.username, date: new Date() }); } setLoading(false); showToast("Demo Data Created"); };
 
-            const filteredCustomers = useMemo(() => removeDuplicates(customers).filter(c => { if(user?.role!=='admin' && c.owner!==user?.username) return false; const s = searchTerm.toLowerCase(); return (c.name.toLowerCase().includes(s) || c.contact.toLowerCase().includes(s)) && (activeFilter==='ALL' || (activeFilter==='INACTIVE' && c.status.includes('Inactive')) || (activeFilter==='TOP20' && c.tier==='Top 20')); }), [customers, searchTerm, activeFilter, user]);
+            // --- AUTO STATUS LOGIC ---
+            // 1. Create a map of latest sale date for each customer
+            const lastSaleMap = useMemo(() => {
+                const map = {};
+                // sales is already sorted desc by date in loadData
+                sales.forEach(s => {
+                    if (!map[s.customerId]) {
+                        map[s.customerId] = new Date(s.date);
+                    }
+                });
+                return map;
+            }, [sales]);
+
+            // 2. Helper to calculate status based on days diff
+            const getCalculatedStatus = (c) => {
+                const lastDate = lastSaleMap[c.id];
+                // If no sales record, fallback to DB status (usually Active for new, or manual override)
+                if (!lastDate) return c.status || 'Active'; 
+
+                const today = new Date();
+                const diffTime = today - lastDate; // milliseconds
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays <= 90) return 'Active';
+                if (diffDays <= 180) return 'Inactive 3M';
+                if (diffDays <= 365) return 'Inactive 6M';
+                return 'Inactive 1Y';
+            };
+
+            // 3. Create enriched customers list with calculated status
+            const customersWithStatus = useMemo(() => {
+                return customers.map(c => ({
+                    ...c,
+                    // OVERRIDE status here dynamically
+                    status: getCalculatedStatus(c) 
+                }));
+            }, [customers, lastSaleMap]);
+
+            // 4. Update filters to use enriched customers
+            const filteredCustomers = useMemo(() => removeDuplicates(customersWithStatus).filter(c => { 
+                if(user?.role!=='admin' && c.owner!==user?.username) return false; 
+                const s = searchTerm.toLowerCase(); 
+                return (c.name.toLowerCase().includes(s) || c.contact.toLowerCase().includes(s)) && (activeFilter==='ALL' || (activeFilter==='INACTIVE' && c.status.includes('Inactive')) || (activeFilter==='TOP20' && c.tier==='Top 20')); 
+            }), [customersWithStatus, searchTerm, activeFilter, user]);
+            
             const totalRevenue = useMemo(() => sales.filter(s => { const c = customers.find(cu => cu.id === s.customerId); if(user?.role!=='admin' && c?.owner!==user?.username) return false; return isDateInRange(s.date, dashboardDateRange.start, dashboardDateRange.end); }).reduce((a,b)=>a+(Number(b.amount)||0),0), [sales, dashboardDateRange, customers, user]);
             const recentActivities = useMemo(() => activities.filter(a => { const c = customers.find(cu => cu.id === a.customerId); if(user?.role!=='admin' && c?.owner!==user?.username) return false; return isDateInRange(a.date, dashboardDateRange.start, dashboardDateRange.end); }).slice(0,50).map(a => ({...a, customerName: customers.find(c=>c.id===a.customerId)?.name||'Unknown'})).filter(a => a.customerName.toLowerCase().includes(searchTerm.toLowerCase())), [activities, customers, searchTerm, dashboardDateRange, user]);
-            const selectedCustomer = useMemo(() => customers.find(c => c.id === selectedCustomerId), [customers, selectedCustomerId]);
+            
+            // 5. Update selectedCustomer to use enriched customers
+            const selectedCustomer = useMemo(() => customersWithStatus.find(c => c.id === selectedCustomerId), [customersWithStatus, selectedCustomerId]);
+            
             const currentCustomerActivities = useMemo(() => selectedCustomer ? activities.filter(a => a.customerId === selectedCustomerId) : [], [activities, selectedCustomerId]);
 
             if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-600 mb-2" size={32}/><p className="text-slate-500">{user ? `สวัสดี คุณ ${user.displayName||user.username} ขอให้วันนี้เป็นวันที่ดีนะ ^_^` : 'Connecting...'}</p></div>;
@@ -354,7 +401,15 @@
                             <div><label className="text-sm block mb-1">ประเภทธุรกิจ</label><select className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.category} onChange={e=>setNewCustomerForm({...newCustomerForm, category:e.target.value})}>{B2B_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                             <div className="grid grid-cols-2 gap-4"><div><label className="text-sm block mb-1">เบอร์โทร</label><input className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.phone} onChange={e=>setNewCustomerForm({...newCustomerForm, phone:e.target.value})}/></div><div><label className="text-sm block mb-1">จังหวัด</label><select className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.province} onChange={e=>setNewCustomerForm({...newCustomerForm, province:e.target.value})}>{PROVINCES.map(p=><option key={p} value={p}>{p}</option>)}</select></div></div>
                             <div><label className="text-sm block mb-1">ผู้ติดต่อ</label><input className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.contact} onChange={e=>setNewCustomerForm({...newCustomerForm, contact:e.target.value})}/></div>
-                            <div className="grid grid-cols-2 gap-4"><div><label className="text-sm block mb-1">Tier</label><select className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.tier} onChange={e=>setNewCustomerForm({...newCustomerForm, tier:e.target.value})}><option>VIP</option><option>Top 100</option><option>Top 20</option><option>Top 10</option></select></div><div><label className="text-sm block mb-1">Status</label><select className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.status} onChange={e=>setNewCustomerForm({...newCustomerForm, status:e.target.value})}><option>Active</option><option>Inactive 3M</option><option>Inactive 6M</option><option>Inactive 1Y</option></select></div></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-sm block mb-1">Tier</label><select className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.tier} onChange={e=>setNewCustomerForm({...newCustomerForm, tier:e.target.value})}><option>VIP</option><option>Top 100</option><option>Top 20</option><option>Top 10</option></select></div>
+                                <div>
+                                    <label className="text-sm block mb-1">Status</label>
+                                    <select className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.status} onChange={e=>setNewCustomerForm({...newCustomerForm, status:e.target.value})}>
+                                        <option>Active</option><option>Inactive 3M</option><option>Inactive 6M</option><option>Inactive 1Y</option>
+                                    </select>
+                                </div>
+                            </div>
                             <div className="flex gap-3 pt-2"><button type="button" onClick={()=>setIsAddCustomerOpen(false)} className="flex-1 border py-2 rounded-lg">ยกเลิก</button><button type="submit" disabled={isSubmitting} className="flex-1 bg-blue-600 text-white py-2 rounded-lg">{isSubmitting?<Loader2 className="animate-spin mx-auto"/>:'บันทึก'}</button></div>
                         </form>
                     </div>
@@ -584,14 +639,14 @@
                                         : 'โหมดออฟไลน์ (บันทึกในเครื่อง)'}
                                 </p>
                             </div>
-                            <div className="flex gap-2">
-                                <div className="bg-white border border-slate-200 rounded-lg p-1 flex items-center gap-2 px-3 text-sm text-slate-600">
-                                    <Calendar size={16} />
-                                    <input type="date" value={dashboardDateRange.start} onChange={(e) => setDashboardDateRange({...dashboardDateRange, start: e.target.value})} className="outline-none bg-transparent w-32" />
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <div className="bg-white border border-slate-200 rounded-lg p-1 flex items-center gap-2 px-3 text-sm text-slate-600 overflow-x-auto max-w-full">
+                                    <Calendar size={16} className="shrink-0" />
+                                    <input type="date" value={dashboardDateRange.start} onChange={(e) => setDashboardDateRange({...dashboardDateRange, start: e.target.value})} className="outline-none bg-transparent w-full sm:w-32" />
                                     <span>-</span>
-                                    <input type="date" value={dashboardDateRange.end} onChange={(e) => setDashboardDateRange({...dashboardDateRange, end: e.target.value})} className="outline-none bg-transparent w-32" />
+                                    <input type="date" value={dashboardDateRange.end} onChange={(e) => setDashboardDateRange({...dashboardDateRange, end: e.target.value})} className="outline-none bg-transparent w-full sm:w-32" />
                                 </div>
-                                <button onClick={openAddCustomerModal} className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md">
+                                <button onClick={openAddCustomerModal} className="flex items-center justify-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md w-full sm:w-auto">
                                     <UserPlus size={18} /> <span>Add Customer</span>
                                 </button>
                             </div>
@@ -763,7 +818,7 @@
                                 <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="ค้นหาลูกค้า..." className="w-full bg-slate-50 border rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                             </div>
                         </div>
-                        <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
+                        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
                             {currentView === 'dashboard' ? renderDashboardView() : 
                              currentView === 'customerList' ? renderCustomerListView() :
                              currentView === 'customerDetail' ? renderCustomerDetailView() : 
