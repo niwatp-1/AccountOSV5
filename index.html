@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HomePro B2B Owner OS</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Noto Sans Thai', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast-enter { animation: slideIn 0.3s ease-out forwards; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in-up { animation: fadeIn 0.5s ease-out forwards; }
+    </style>
+
+    <!-- Import Map -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+      }
+    }
+    </script>
+
+    <!-- Babel -->
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            Users, LayoutDashboard, TrendingUp, Calendar, Phone, MapPin, 
+            FileText, Clock, AlertCircle, Search, ChevronRight, PlusCircle, 
+            CheckCircle2, ArrowUpRight, ArrowLeft, Save, Loader2, RefreshCcw,
+            Menu, X, UserPlus, Briefcase, Bell, CheckCircle, Filter, Building2, 
+            Database, LogOut, Lock, Shield, UserCog, Trash2, Map, CalendarCheck, 
+            MoreVertical, CreditCard, Hash, List, Activity, Pencil, MoreHorizontal, 
+            User, DollarSign, Download, Settings, Camera, UserMinus
+        } from 'lucide-react';
+
+        // --- Configuration ---
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJ0UuO4nCEDEKujCgWy-P99VgQw7qLhWedJp48oa8sOuUJaAg8VbOQMYeTuy83YQ8/exec"; 
+
+        // Data Lists
+        const B2B_CATEGORIES = ["1. ออฟฟิศ/สำนักงาน", "2. โครงการอสังหาริมทรพย์/บริษัทรับสร้างบ้าน", "3. ช่าง", "4. สถาปนิก/วิศวกร/ออกแบบตกแต่ง", "5. ธุรกิจที่พักอาศัย ", "6. โรงแรม/รีสอร์ท/สปา", "7. ธุรกิจอาหารและเครื่องดื่ม", "8. บริการด้านสุขภาพ", "9. โรงงานอุตสาหกรรม", "10. หน่วยงานราชการ/สถานศึกษา/วัด", "11. ร้านค้าช่วงนายหน้า", "12. Other (อื่นๆ)"];
+        const PROVINCES = ["กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท", "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครราชสีมา", "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต", "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"];
+
+        // --- Helper Functions ---
+        const removeDuplicates = (array) => {
+            const seen = new Set();
+            return array.filter(item => {
+                const duplicate = seen.has(item.id);
+                seen.add(item.id);
+                return !duplicate;
+            });
+        };
+
+        const isDateInRange = (date, start, end) => {
+            if (!date) return false;
+            const d = new Date(date);
+            const s = start ? new Date(start) : null;
+            const e = end ? new Date(end) : null;
+            if (isNaN(d.getTime())) return false;
+            d.setHours(0,0,0,0); if(s) s.setHours(0,0,0,0); if(e) e.setHours(0,0,0,0);
+            if (s && d < s) return false;
+            if (e && d > e) return false;
+            return true;
+        };
+
+        const safeDate = (d) => {
+            const date = new Date(d);
+            return isNaN(date.getTime()) ? new Date() : date;
+        };
+
+        const getTodayStr = () => {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const getFirstDayOfMonthStr = () => {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            return `${year}-${month}-01`;
+        };
+
+        const getFirstDayOfYearStr = () => {
+            const d = new Date();
+            return `${d.getFullYear()}-01-01`;
+        };
+
+        const formatThaiDate = (date) => {
+            if (!date) return '-';
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return '-';
+            if (d.getFullYear() < 1900) return '-';
+            return d.toLocaleDateString('th-TH', { 
+                timeZone: 'Asia/Bangkok',
+                year: 'numeric', month: '2-digit', day: '2-digit' 
+            });
+        };
+
+        const formatThaiTime = (date) => {
+            if (!date) return '-';
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return '-';
+            return d.toLocaleTimeString('th-TH', { 
+                timeZone: 'Asia/Bangkok',
+                hour: '2-digit', minute: '2-digit' 
+            });
+        };
+
+        // --- Components ---
+        const StatCard = ({ title, value, subtext, trend, onClick, active, color = 'blue' }) => (
+            <div onClick={onClick} className={`p-6 rounded-xl shadow-sm border transition-all cursor-pointer ${active ? `ring-2 ring-${color}-500 border-${color}-500 bg-${color}-50` : 'border-slate-100 bg-white hover:border-blue-300 hover:shadow-md'}`}>
+                <div className="flex justify-between items-start"><div><p className="text-slate-500 text-sm font-medium">{title}</p><h3 className="text-2xl font-bold text-slate-800 mt-1">{value}</h3></div><div className={`p-2 rounded-full ${trend === 'up' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><TrendingUp size={20} className={trend === 'down' ? 'rotate-180' : ''} /></div></div>
+                <p className="text-xs text-slate-400 mt-4">{subtext}</p>{active && <div className={`mt-2 text-xs font-bold text-${color}-600 flex items-center gap-1`}><CheckCircle size={12}/> กำลังแสดงผล</div>}
+            </div>
+        );
+
+        const Toast = ({ message, onClose }) => (
+            <div className="fixed top-5 right-5 z-50 bg-slate-800 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 toast-enter"><CheckCircle size={20} className="text-green-400" /><span className="text-sm font-medium">{message}</span><button onClick={onClose} className="ml-2 text-slate-400 hover:text-white"><X size={16}/></button></div>
+        );
+
+        const LoginScreen = ({ onLogin, loading, error }) => {
+            const [u, setU] = useState(''); const [p, setP] = useState('');
+            return (<div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 p-4"><div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md fade-in-up"><div className="flex flex-col items-center mb-8"><div className="h-16 w-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-200"><span className="text-white text-2xl font-bold">HP</span></div><h2 className="text-2xl font-bold text-slate-800">B2B Owner OS</h2><p className="text-slate-500 text-sm mt-1">ระบบบริหารจัดการลูกค้าสัมพันธ์</p></div><form onSubmit={e => { e.preventDefault(); onLogin(u, p); }} className="space-y-6"><div><label className="block text-sm font-medium text-slate-700 mb-1">รหัสพนักงาน / ชื่อผู้ใช้</label><div className="relative"><Users className="absolute left-3 top-2.5 text-slate-400" size={20} /><input type="text" value={u} onChange={e => setU(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="เช่น admin" autoFocus /></div></div><div><label className="block text-sm font-medium text-slate-700 mb-1">รหัสผ่าน</label><div className="relative"><Lock className="absolute left-3 top-2.5 text-slate-400" size={20} /><input type="password" value={p} onChange={e => setP(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="••••••••" /></div></div>{error && <p className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</p>}<button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex justify-center items-center gap-2 disabled:opacity-70">{loading ? <Loader2 size={20} className="animate-spin" /> : 'เข้าสู่ระบบ'}</button></form></div><p className="mt-8 text-xs text-slate-400 text-center">B2B Owner OS 2025-2026; All rights reserved by Niwat Phongsuwan (ฺB2B Officer)</p></div>);
+        };
+
+        function B2BAppFullStack() {
+            const [user, setUser] = useState(null);
+            const [customers, setCustomers] = useState([]);
+            const [activities, setActivities] = useState([]);
+            const [visitPlans, setVisitPlans] = useState([]);
+            const [sales, setSales] = useState([]);
+            const [allUsers, setAllUsers] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            const [toastMsg, setToastMsg] = useState(null);
+            const [loginError, setLoginError] = useState('');
+            const [isLoggingIn, setIsLoggingIn] = useState(false);
+            const [currentView, setCurrentView] = useState('dashboard');
+            const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+            const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+            const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [activeFilter, setActiveFilter] = useState('ALL');
+            const [dashboardDateRange, setDashboardDateRange] = useState({ start: getFirstDayOfMonthStr(), end: getTodayStr() });
+            const [customerDateRange, setCustomerDateRange] = useState({ start: getFirstDayOfMonthStr(), end: getTodayStr() });
+            const [newActivityNote, setNewActivityNote] = useState('');
+            const [editingCustomerId, setEditingCustomerId] = useState(null);
+            const [isUpdateRevenueOpen, setIsUpdateRevenueOpen] = useState(false);
+            const [revenueUpdateForm, setRevenueUpdateForm] = useState({ amount: '', date: getTodayStr() });
+            const [isAddVisitPlanOpen, setIsAddVisitPlanOpen] = useState(false);
+            const [newVisitPlan, setNewVisitPlan] = useState({ customerId: '', date: '', time: '10:00', objective: '' });
+            const [newCustomerForm, setNewCustomerForm] = useState({ name: '', customerName: '', contact: '', phone: '', category: B2B_CATEGORIES[0], province: 'กรุงเทพมหานคร', tier: 'VIP', status: 'Active', strategy: '', homeCard: '', bizId: '' });
+            const [newUserForm, setNewUserForm] = useState({ username: '', password: '', displayName: '', role: 'user' });
+            const [settingsForm, setSettingsForm] = useState({ displayName: '', password: '', photoURL: '' });
+            const [dueVisitCount, setDueVisitCount] = useState(0);
+            
+            // Image Error Handling State
+            const [imgError, setImgError] = useState(false);
+
+            const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 3000); };
+
+            useEffect(() => { 
+                if (user) {
+                    setSettingsForm({ displayName: user.displayName || '', password: '', photoURL: user.photoURL || '' });
+                    setImgError(false); // Reset image error state on user change
+                }
+            }, [user]);
+
+            useEffect(() => {
+                const checkDueVisits = () => {
+                    if (!visitPlans.length) { setDueVisitCount(0); return; }
+                    const now = new Date(); const todayStr = getTodayStr(); const currentHours = now.getHours(); const currentMinutes = now.getMinutes();
+                    const count = visitPlans.filter(p => {
+                        if (user?.role !== 'admin' && p.owner !== user?.username) return false;
+                        if (p.status !== 'Planned') return false;
+                        let pd = p.date;
+                        if (pd && typeof pd === 'string') { if (pd.includes('T')) pd = pd.split('T')[0]; else if (pd.includes(' ')) pd = pd.split(' ')[0]; }
+                        if (pd < todayStr) return true;
+                        if (pd > todayStr) return false;
+                        if (!p.time) return true;
+                        let ph, pm;
+                        if (p.time.includes('T')) { const d = new Date(p.time); ph = d.getHours(); pm = d.getMinutes(); } else if (p.time.includes(':')) { [ph, pm] = p.time.split(':').map(Number); } else return true;
+                        if (ph < currentHours) return true;
+                        if (ph === currentHours && pm <= currentMinutes) return true;
+                        return false;
+                    }).length;
+                    setDueVisitCount(count);
+                };
+                checkDueVisits(); const interval = setInterval(checkDueVisits, 60000); return () => clearInterval(interval);
+            }, [visitPlans, user]);
+
+            const loadData = async (currUser = user) => {
+                setLoading(true);
+                if (GOOGLE_SCRIPT_URL) {
+                    try {
+                        const res = await fetch(GOOGLE_SCRIPT_URL + `?username=${encodeURIComponent(currUser?.username)}&role=${encodeURIComponent(currUser?.role)}`);
+                        const data = await res.json();
+                        if (data) {
+                            setActivities((data.activities || []).map(a => ({...a, date: a.date ? new Date(a.date) : new Date()})).sort((a, b) => b.date - a.date));
+                            setVisitPlans((data.visitPlans || []).map(p => ({...p})).sort((a, b) => new Date(a.date) - new Date(b.date)));
+                            setSales((data.sales || []).map(s => ({...s, date: s.date ? new Date(s.date) : new Date()})).sort((a, b) => b.date - a.date));
+                            setCustomers(removeDuplicates(data.customers || []));
+                            if (currUser?.role === 'admin' && data.users) setAllUsers(data.users);
+                            
+                            // *** UPDATE USER FROM BACKEND ***
+                            if (data.currentUser) {
+                                const updatedUser = { ...currUser, ...data.currentUser };
+                                if (JSON.stringify(updatedUser) !== JSON.stringify(currUser)) {
+                                    setUser(updatedUser);
+                                    localStorage.setItem('b2b_current_user', JSON.stringify(updatedUser));
+                                    setImgError(false); // Reset error on new data
+                                }
+                            }
+                        }
+                    } catch (e) {}
+                } else {
+                    if (currUser?.role === 'admin' && allUsers.length === 0) setAllUsers([{ id: '1', username: 'admin', displayName: 'System Admin', role: 'admin' }, { id: '2', username: 'sale01', displayName: 'Sale Rep 1', role: 'user' }]);
+                }
+                setLoading(false);
+            };
+
+            const handleLogin = async (u, p) => {
+                setLoginError(''); setIsLoggingIn(true);
+                if (GOOGLE_SCRIPT_URL) {
+                    try {
+                        const res = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'login', username: u, password: p }) });
+                        const result = await res.json();
+                        if (result.status === 'success') { localStorage.setItem('b2b_current_user', JSON.stringify(result.user)); setUser(result.user); await loadData(result.user); } else { setLoginError(result.message); }
+                    } catch (e) { setLoginError('Connection Error'); }
+                } else {
+                    await new Promise(r => setTimeout(r, 500));
+                    if (u && p) { const mockUser = { username: u, displayName: u, role: (u === 'admin' && p === 'admin') ? 'admin' : 'user' }; localStorage.setItem('b2b_current_user', JSON.stringify(mockUser)); setUser(mockUser); await loadData(mockUser); } else { setLoginError('Invalid credentials'); }
+                }
+                setIsLoggingIn(false);
+            };
+
+            const handleLogout = () => { 
+                try { localStorage.removeItem('b2b_current_user'); } catch(e) {}
+                setUser(null); 
+                setCustomers([]); 
+                setActivities([]); 
+                setVisitPlans([]); 
+                setSales([]); 
+                setAllUsers([]);
+                setSettingsForm({ displayName: '', password: '', photoURL: '' }); 
+                setCurrentView('dashboard'); 
+            };
+
+            const saveDataToSheet = async (type, data) => { if (!GOOGLE_SCRIPT_URL) return; await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'add', type, data }) }); };
+            const createUserInSheet = async (userData) => { if (!GOOGLE_SCRIPT_URL) return; return await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'addUser', type: 'Users', data: userData }) }).then(r=>r.json()); };
+            const updateUserInSheet = async (userData) => { if (!GOOGLE_SCRIPT_URL) return; return await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'updateUser', type: 'Users', data: userData }) }).then(r=>r.json()); };
+
+            useEffect(() => { const u = localStorage.getItem('b2b_current_user'); if (u) { const pu = JSON.parse(u); setUser(pu); loadData(pu); } else setLoading(false); }, []);
+
+            const handleSaveData = async (coll, newData, id = null) => {
+                const item = { id: id || crypto.randomUUID(), ...newData, createdAt: new Date().toISOString() };
+                if (coll === 'customers') setCustomers(prev => id ? prev.map(c => c.id === id ? { ...c, ...newData } : c) : (prev.some(c => String(c.name).trim() === String(item.name).trim()) ? prev : [...prev, item]));
+                else if (coll === 'activities') setActivities(prev => [...prev, { ...item, date: newData.date ? new Date(newData.date) : new Date() }].sort((a, b) => b.date - a.date));
+                else if (coll === 'visitPlans') setVisitPlans(prev => id ? prev.map(x => x.id === id ? { ...x, ...newData } : x) : [...prev, item].sort((a, b) => new Date(a.date) - new Date(b.date)));
+                else if (coll === 'sales') setSales(prev => [...prev, { ...item, date: newData.date ? new Date(newData.date) : new Date() }].sort((a, b) => b.date - a.date));
+                if (GOOGLE_SCRIPT_URL) saveDataToSheet(coll, item).catch(console.error);
+                return item.id;
+            };
+
+            // --- Handlers ---
+            const openAddCustomerModal = () => { setEditingCustomerId(null); setNewCustomerForm({ name: '', customerName: '', contact: '', phone: '', category: B2B_CATEGORIES[0], province: 'กรุงเทพมหานคร', tier: 'VIP', status: 'Active', strategy: '', homeCard: '', bizId: '' }); setIsAddCustomerOpen(true); };
+            const openEditCustomerModal = (c) => { setEditingCustomerId(c.id); setNewCustomerForm({ name: c.name||'', customerName: c.customerName||'', contact: c.contact||'', phone: c.phone||'', category: c.category||B2B_CATEGORIES[0], province: c.province||'กรุงเทพมหานคร', tier: c.tier||'VIP', status: c.status||'Active', strategy: c.strategy||'', homeCard: c.homeCard||'', bizId: c.bizId||'' }); setIsAddCustomerOpen(true); };
+            const handleDeleteCustomer = async (id) => { 
+                if (!confirm("ยืนยันลบ?")) return; 
+                setCustomers(p => p.filter(c => c.id !== id)); 
+                await saveDataToSheet('customers', { id, status: 'Deleted' }); 
+                showToast("ลบเรียบร้อย"); 
+                if (selectedCustomerId === id) setSelectedCustomerId(null); 
+            };
+            const handleExportCustomers = () => { const h = ['ชื่อบริษัท','ชื่อลูกค้า','ผู้ติดต่อ','เบอร์โทร','ประเภทธุรกิจ','จังหวัด','Tier','Status','HomeCard','Biz ID']; const csv = [h.join(','), ...filteredCustomers.map(c => [`"${c.name||''}"`,`"${c.customerName||''}"`,`"${c.contact||''}"`,`"${c.phone||''}"`,`"${c.category||''}"`,`"${c.province||''}"`,`"${c.tier||''}"`,`"${c.status||''}"`,`"${c.homeCard||''}"`,`"${c.bizId||''}"`].join(','))].join('\n'); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'})); link.download = `customers_${getTodayStr()}.csv`; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
+            const handleSaveCustomerForm = async (e) => { e.preventDefault(); if (isSubmitting) return; setIsSubmitting(true); try { if (!editingCustomerId && customers.some(c => String(c.name).trim().toLowerCase() === String(newCustomerForm.name).trim().toLowerCase())) { showToast("ชื่อซ้ำ"); setIsSubmitting(false); return; } const data = { ...newCustomerForm, owner: user?.username || 'admin', nextAction: editingCustomerId ? undefined : 'New Account' }; const savedId = await handleSaveData('customers', data, editingCustomerId); if (!editingCustomerId) { await handleSaveData('activities', { customerId: savedId, type: 'System', note: `New customer: ${data.name}`, by: user?.username, date: new Date() }); showToast("เพิ่มสำเร็จ"); setSelectedCustomerId(savedId); setCurrentView('customerDetail'); } else showToast("แก้ไขสำเร็จ"); setIsAddCustomerOpen(false); } catch(e) { showToast("Error"); } finally { setIsSubmitting(false); } };
+            const handleRecordSale = async (e) => { e.preventDefault(); if(!selectedCustomerId || !revenueUpdateForm.amount) return; setIsSubmitting(true); try { const amt = Number(revenueUpdateForm.amount); const dp = revenueUpdateForm.date.split('-'); const rd = new Date(parseInt(dp[0]), parseInt(dp[1])-1, parseInt(dp[2]), new Date().getHours(), new Date().getMinutes()); await handleSaveData('sales', { customerId: selectedCustomerId, amount: amt, date: rd, note: `ยอดขาย: ฿${amt.toLocaleString()}`, by: user?.username }); await handleSaveData('activities', { customerId: selectedCustomerId, type: 'Sale', note: `บันทึกยอดขาย: ฿${amt.toLocaleString()} (${formatThaiDate(rd)})`, by: user?.username, date: rd }); setIsUpdateRevenueOpen(false); setRevenueUpdateForm({ amount: '', date: getTodayStr() }); showToast("บันทึกแล้ว"); } catch(e) { showToast("Error"); } finally { setIsSubmitting(false); } };
+            const handleCreateUser = async (e) => { e.preventDefault(); if(!newUserForm.username) return; setIsSubmitting(true); try { const nu = { id: crypto.randomUUID(), username: newUserForm.username, password: newUserForm.password, displayName: newUserForm.displayName || newUserForm.username, role: newUserForm.role, createdAt: new Date().toISOString() }; if(GOOGLE_SCRIPT_URL) await createUserInSheet(nu); setAllUsers(p => [...p, nu]); showToast("User created"); setNewUserForm({ username: '', password: '', displayName: '', role: 'user' }); } catch(e) { showToast("Error"); } finally { setIsSubmitting(false); } };
+            const handleDeleteUser = async (targetId) => { if(!confirm("ต้องการลบผู้ใช้งานนี้?")) return; setAllUsers(prev => prev.filter(u => u.id !== targetId)); showToast("ลบผู้ใช้งานเรียบร้อย"); };
+            const handleCreateVisitPlan = async (e) => { e.preventDefault(); if(!newVisitPlan.customerId) return; setIsSubmitting(true); try { const c = customers.find(x=>x.id===newVisitPlan.customerId); await handleSaveData('visitPlans', { ...newVisitPlan, customerName: c?c.name:'Unknown', status: 'Planned', owner: user?.username }); showToast("Saved"); setIsAddVisitPlanOpen(false); setNewVisitPlan({ customerId: '', date: getTodayStr(), time: '10:00', objective: '' }); } catch(e) { showToast("Error"); } finally { setIsSubmitting(false); } };
+            const handleCompleteVisitPlan = async (p) => { if(!confirm("Confirm?")) return; await handleSaveData('visitPlans', { ...p, status: 'Completed' }, p.id); await handleSaveData('activities', { customerId: p.customerId, type: 'Visit', note: `Completed: ${p.objective}`, by: user?.username, date: new Date() }); showToast("Checked-in"); };
+            const handleDeleteVisitPlan = async (pid) => { if(!confirm("Delete?")) return; setVisitPlans(p => p.filter(x => x.id !== pid)); await handleSaveData('visitPlans', { status: 'Cancelled' }, pid); showToast("Deleted"); };
+            const handleAddActivity = async (t) => { if(!newActivityNote.trim()) return; await handleSaveData('activities', { customerId: selectedCustomerId, type: t, note: newActivityNote, by: user?.username, date: new Date() }); setNewActivityNote(''); showToast("Posted"); };
+            const handleSettingsFileChange = (e) => { const f = e.target.files[0]; if(f) { if(f.size>2*1024*1024){alert("รูปขนาดเกิน 2MB");return;} const r = new FileReader(); r.onloadend = () => setSettingsForm(p => ({ ...p, photoURL: r.result })); r.readAsDataURL(f); } };
+            const handleSaveSettings = async () => { setIsSubmitting(true); try { let url = settingsForm.photoURL; if(url && url.startsWith('data:') && GOOGLE_SCRIPT_URL) { try { const res = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'uploadProfileImage', username: user.username, image: url }) }); const r = await res.json(); if(r.url) url = r.url; } catch(e){} } const u = { ...user, ...settingsForm, photoURL: url }; if(!settingsForm.password) delete u.password; setUser(u); localStorage.setItem('b2b_current_user', JSON.stringify(u)); if(GOOGLE_SCRIPT_URL) await updateUserInSheet(u); showToast("Saved"); setImgError(false); } catch(e) { showToast("Error"); } finally { setIsSubmitting(false); } };
+            const seedData = async () => { setLoading(true); const demos = [{ name: 'Demo Corp', contact: 'Mr. A', phone: '0999999999', category: B2B_CATEGORIES[0], tier: 'Standard', status: 'Active' }]; for(const c of demos) { const id = await handleSaveData('customers', c); await handleSaveData('activities', { customerId: id, type: 'System', note: 'Demo', by: user?.username, date: new Date() }); } setLoading(false); showToast("Demo Data Created"); };
+
+            const filteredCustomers = useMemo(() => removeDuplicates(customers).filter(c => { if(user?.role!=='admin' && c.owner!==user?.username) return false; const s = searchTerm.toLowerCase(); return (c.name.toLowerCase().includes(s) || c.contact.toLowerCase().includes(s)) && (activeFilter==='ALL' || (activeFilter==='INACTIVE' && c.status.includes('Inactive')) || (activeFilter==='TOP20' && c.tier==='Top 20')); }), [customers, searchTerm, activeFilter, user]);
+            const totalRevenue = useMemo(() => sales.filter(s => { const c = customers.find(cu => cu.id === s.customerId); if(user?.role!=='admin' && c?.owner!==user?.username) return false; return isDateInRange(s.date, dashboardDateRange.start, dashboardDateRange.end); }).reduce((a,b)=>a+(Number(b.amount)||0),0), [sales, dashboardDateRange, customers, user]);
+            const recentActivities = useMemo(() => activities.filter(a => { const c = customers.find(cu => cu.id === a.customerId); if(user?.role!=='admin' && c?.owner!==user?.username) return false; return isDateInRange(a.date, dashboardDateRange.start, dashboardDateRange.end); }).slice(0,50).map(a => ({...a, customerName: customers.find(c=>c.id===a.customerId)?.name||'Unknown'})).filter(a => a.customerName.toLowerCase().includes(searchTerm.toLowerCase())), [activities, customers, searchTerm, dashboardDateRange, user]);
+            const selectedCustomer = useMemo(() => customers.find(c => c.id === selectedCustomerId), [customers, selectedCustomerId]);
+            const currentCustomerActivities = useMemo(() => selectedCustomer ? activities.filter(a => a.customerId === selectedCustomerId) : [], [activities, selectedCustomerId]);
+
+            if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-600 mb-2" size={32}/><p className="text-slate-500">{user ? `สวัสดี คุณ ${user.displayName||user.username} ขอให้วันนี้เป็นวันที่ดีนะ ^_^` : 'Connecting...'}</p></div>;
+            if (!user) return <LoginScreen onLogin={handleLogin} loading={isLoggingIn} error={loginError} />;
+
+            // --- Render Functions (Declared AFTER handlers) ---
+            const renderAddCustomerModal = () => isAddCustomerOpen && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                        <div className="px-6 py-4 border-b flex justify-between bg-slate-50 sticky top-0"><h3 className="font-bold flex gap-2">{editingCustomerId?<Pencil size={20}/>:<UserPlus size={20}/>} {editingCustomerId?'แก้ไข':'เพิ่ม'}ลูกค้า</h3><button onClick={()=>setIsAddCustomerOpen(false)}><X size={20}/></button></div>
+                        <form onSubmit={handleSaveCustomerForm} className="p-6 space-y-4">
+                            <div className="grid grid-cols-2 gap-4"><div><label className="text-sm block mb-1">ชื่อบริษัท*</label><input required className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.name} onChange={e=>setNewCustomerForm({...newCustomerForm, name:e.target.value})}/></div><div><label className="text-sm block mb-1">ชื่อลูกค้า</label><input className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.customerName} onChange={e=>setNewCustomerForm({...newCustomerForm, customerName:e.target.value})}/></div></div>
+                            <div className="grid grid-cols-2 gap-4"><div><label className="text-sm block mb-1">HomeCard</label><input className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.homeCard} onChange={e=>setNewCustomerForm({...newCustomerForm, homeCard:e.target.value})}/></div><div><label className="text-sm block mb-1">Biz ID</label><input className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.bizId} onChange={e=>setNewCustomerForm({...newCustomerForm, bizId:e.target.value})}/></div></div>
+                            <div><label className="text-sm block mb-1">ประเภทธุรกิจ</label><select className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.category} onChange={e=>setNewCustomerForm({...newCustomerForm, category:e.target.value})}>{B2B_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+                            <div className="grid grid-cols-2 gap-4"><div><label className="text-sm block mb-1">เบอร์โทร</label><input className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.phone} onChange={e=>setNewCustomerForm({...newCustomerForm, phone:e.target.value})}/></div><div><label className="text-sm block mb-1">จังหวัด</label><select className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.province} onChange={e=>setNewCustomerForm({...newCustomerForm, province:e.target.value})}>{PROVINCES.map(p=><option key={p} value={p}>{p}</option>)}</select></div></div>
+                            <div><label className="text-sm block mb-1">ผู้ติดต่อ</label><input className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.contact} onChange={e=>setNewCustomerForm({...newCustomerForm, contact:e.target.value})}/></div>
+                            <div className="grid grid-cols-2 gap-4"><div><label className="text-sm block mb-1">Tier</label><select className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.tier} onChange={e=>setNewCustomerForm({...newCustomerForm, tier:e.target.value})}><option>VIP</option><option>Top 100</option><option>Top 20</option><option>Top 10</option></select></div><div><label className="text-sm block mb-1">Status</label><select className="w-full border rounded-lg px-3 py-2" value={newCustomerForm.status} onChange={e=>setNewCustomerForm({...newCustomerForm, status:e.target.value})}><option>Active</option><option>Inactive 3M</option><option>Inactive 6M</option><option>Inactive 1Y</option></select></div></div>
+                            <div className="flex gap-3 pt-2"><button type="button" onClick={()=>setIsAddCustomerOpen(false)} className="flex-1 border py-2 rounded-lg">ยกเลิก</button><button type="submit" disabled={isSubmitting} className="flex-1 bg-blue-600 text-white py-2 rounded-lg">{isSubmitting?<Loader2 className="animate-spin mx-auto"/>:'บันทึก'}</button></div>
+                        </form>
+                    </div>
+                </div>
+            );
+
+            const renderUpdateRevenueModal = () => isUpdateRevenueOpen && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+                        <div className="px-6 py-4 border-b flex justify-between bg-green-50 sticky top-0"><h3 className="font-bold text-green-700 flex gap-2"><DollarSign/> บันทึกยอดขาย</h3><button onClick={()=>setIsUpdateRevenueOpen(false)}><X/></button></div>
+                        <form onSubmit={handleRecordSale} className="p-6 space-y-4">
+                            <div><label className="text-sm block mb-1">ยอดขาย (บาท)</label><input required type="number" autoFocus className="w-full border rounded-lg px-3 py-2 text-lg font-bold text-green-700" value={revenueUpdateForm.amount} onChange={e=>setRevenueUpdateForm({...revenueUpdateForm, amount:e.target.value})}/></div>
+                            <div><label className="text-sm block mb-1">วันที่</label><input required type="date" className="w-full border rounded-lg px-3 py-2" value={revenueUpdateForm.date} onChange={e=>setRevenueUpdateForm({...revenueUpdateForm, date:e.target.value})}/></div>
+                            <div className="flex gap-3 pt-2"><button type="button" onClick={()=>setIsUpdateRevenueOpen(false)} className="flex-1 border py-2 rounded-lg">ยกเลิก</button><button type="submit" disabled={isSubmitting} className="flex-1 bg-green-600 text-white py-2 rounded-lg">{isSubmitting?<Loader2 className="animate-spin mx-auto"/>:'ยืนยัน'}</button></div>
+                        </form>
+                    </div>
+                </div>
+            );
+
+            const renderAddVisitPlanModal = () => isAddVisitPlanOpen && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+                        <div className="px-6 py-4 border-b flex justify-between items-center"><h3 className="font-bold flex gap-2"><CalendarCheck/> สร้างแผนเข้าเยี่ยม</h3><button onClick={()=>setIsAddVisitPlanOpen(false)}><X/></button></div>
+                        <form onSubmit={handleCreateVisitPlan} className="p-6 space-y-4">
+                            <div><label className="text-sm block mb-1">ลูกค้า</label><select required className="w-full border rounded-lg px-3 py-2" value={newVisitPlan.customerId} onChange={e=>setNewVisitPlan({...newVisitPlan, customerId:e.target.value})}><option value="">-- เลือก --</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                            <div className="grid grid-cols-2 gap-4"><div><label className="text-sm block mb-1">วันที่</label><input required type="date" className="w-full border rounded-lg px-3 py-2" value={newVisitPlan.date} onChange={e=>setNewVisitPlan({...newVisitPlan, date:e.target.value})}/></div><div><label className="text-sm block mb-1">เวลา</label><input type="time" className="w-full border rounded-lg px-3 py-2" value={newVisitPlan.time} onChange={e=>setNewVisitPlan({...newVisitPlan, time:e.target.value})}/></div></div>
+                            <div><label className="text-sm block mb-1">วัตถุประสงค์</label><textarea className="w-full border rounded-lg px-3 py-2" rows="3" value={newVisitPlan.objective} onChange={e=>setNewVisitPlan({...newVisitPlan, objective:e.target.value})}/></div>
+                            <div className="flex gap-3 pt-2"><button type="button" onClick={()=>setIsAddVisitPlanOpen(false)} className="flex-1 border py-2 rounded-lg">ยกเลิก</button><button type="submit" disabled={isSubmitting} className="flex-1 bg-blue-600 text-white py-2 rounded-lg">{isSubmitting?<Loader2 className="animate-spin mx-auto"/>:'บันทึก'}</button></div>
+                        </form>
+                    </div>
+                </div>
+            );
+
+            const renderUserSettingsView = () => (
+                <div className="space-y-6 animate-in fade-in">
+                    <div className="flex justify-between items-center mb-2"><div><h1 className="text-2xl font-bold">ตั้งค่าผู้ใช้งาน</h1><p className="text-slate-500">ข้อมูลส่วนตัวและโปรไฟล์</p></div></div>
+                    <div className="bg-white p-8 rounded-xl shadow-sm border max-w-2xl mx-auto">
+                        <div className="flex flex-col items-center mb-8">
+                            <div className="relative group">
+                                <div className="w-32 h-32 rounded-full bg-slate-200 overflow-hidden border-4 border-white shadow-lg flex items-center justify-center text-slate-400 text-4xl font-bold bg-cover bg-center" style={{backgroundImage: (settingsForm.photoURL && !imgError) ? `url(${settingsForm.photoURL})` : 'none'}}>
+                                    {(!settingsForm.photoURL || imgError) && (user?.displayName||user?.username||"U").substring(0,2).toUpperCase()}
+                                    <img src={settingsForm.photoURL} alt="Profile" className="hidden" onError={() => setImgError(true)} onLoad={() => setImgError(false)} />
+                                </div>
+                                <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700"><Camera size={20}/><input type="file" className="hidden" accept="image/*" onChange={handleSettingsFileChange}/></label>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <div><label className="text-sm block mb-1">ชื่อที่แสดง</label><input type="text" className="w-full border rounded-lg px-4 py-2" value={settingsForm.displayName} onChange={e=>setSettingsForm({...settingsForm, displayName:e.target.value})}/></div>
+                            <div><label className="text-sm block mb-1">รหัสผ่านใหม่</label><input type="password" className="w-full border rounded-lg px-4 py-2" value={settingsForm.password} onChange={e=>setSettingsForm({...settingsForm, password:e.target.value})} placeholder="เว้นว่างไว้หากไม่เปลี่ยน"/></div>
+                            <div className="pt-4"><button onClick={handleSaveSettings} disabled={isSubmitting} className="w-full bg-slate-900 text-white py-2.5 rounded-lg font-bold flex justify-center gap-2 hover:bg-slate-800 disabled:opacity-70">{isSubmitting ? <Loader2 className="animate-spin"/> : <><Save size={20}/> บันทึก</>}</button></div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const renderCustomerDetailView = () => {
+                if(!selectedCustomer) return <div className="p-8 text-center text-slate-500">ไม่พบข้อมูล</div>;
+                const lifeTimeRev = sales.filter(s => s.customerId === selectedCustomer.id && isDateInRange(s.date, customerDateRange.start, customerDateRange.end)).reduce((a,b)=>a+(Number(b.amount)||0),0);
+                return (
+                    <div className="space-y-6 animate-in fade-in">
+                        <div className="flex justify-between items-center gap-4">
+                            <div className="flex items-center gap-4"><button onClick={()=>setCurrentView('customerList')} className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft/></button><div><h1 className="text-2xl font-bold flex items-center gap-2">{selectedCustomer.name} <span className="text-xs bg-yellow-100 text-yellow-800 px-2 rounded-full border border-yellow-200">{selectedCustomer.tier}</span> <span className={`text-xs px-2 rounded-full border ${selectedCustomer.status==='Active'?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}`}>{selectedCustomer.status}</span></h1>{selectedCustomer.customerName && <p className="text-lg text-slate-700 mt-0.5">{selectedCustomer.customerName}</p>}<div className="flex gap-3 text-slate-500 text-sm mt-1"><span><MapPin size={14} className="inline"/> {selectedCustomer.province}</span><span><Phone size={14} className="inline"/> {selectedCustomer.phone}</span></div></div></div>
+                            <div className="flex gap-2"><button onClick={()=>openEditCustomerModal(selectedCustomer)} className="px-4 py-2 border rounded-lg flex items-center gap-2 hover:bg-slate-50"><Pencil size={16}/> แก้ไข</button><button onClick={()=>setIsUpdateRevenueOpen(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2 hover:bg-green-700 shadow-md"><DollarSign size={16}/> อัปเดตยอด</button></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white p-6 rounded-xl border shadow-sm"><div className="flex justify-between mb-2"><p className="text-slate-500 text-sm font-medium">ยอดขายสะสม</p></div><div className="flex items-center gap-1 text-xs mb-3"><input type="date" value={customerDateRange.start} onChange={e=>setCustomerDateRange({...customerDateRange, start:e.target.value})} className="border rounded px-1"/>-<input type="date" value={customerDateRange.end} onChange={e=>setCustomerDateRange({...customerDateRange, end:e.target.value})} className="border rounded px-1"/></div><h3 className="text-3xl font-bold text-green-600">฿{lifeTimeRev.toLocaleString()}</h3></div>
+                            <div className="bg-white p-6 rounded-xl border shadow-sm"><p className="text-slate-500 text-sm font-medium">Next Action</p><div className="mt-4 font-bold text-slate-800">{selectedCustomer.nextAction||'None'}</div><button onClick={()=>{setIsAddVisitPlanOpen(true); setNewVisitPlan({...newVisitPlan, customerId: selectedCustomer.id})}} className="text-xs text-blue-600 mt-2 hover:underline">+ สร้างแผนเข้าเยี่ยม</button></div>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="bg-white p-6 rounded-xl border shadow-sm space-y-3 text-sm">
+                                <h3 className="font-bold flex gap-2 mb-4"><FileText size={18}/> ข้อมูลทั่วไป</h3>
+                                <div className="flex justify-between border-b pb-2"><span className="text-slate-500">Contact</span><span className="font-medium">{selectedCustomer.contact}</span></div>
+                                <div className="flex justify-between border-b pb-2"><span className="text-slate-500">Category</span><span className="font-medium">{selectedCustomer.category}</span></div>
+                                <div className="flex justify-between border-b pb-2"><span className="text-slate-500">HomeCard</span><span className="font-medium">{selectedCustomer.homeCard||'-'}</span></div>
+                                <div className="flex justify-between border-b pb-2"><span className="text-slate-500">Biz ID</span><span className="font-medium">{selectedCustomer.bizId||'-'}</span></div>
+                                <div className="pt-2"><span className="text-slate-500 block mb-1">Strategy</span><p className="bg-slate-50 p-2 rounded">{selectedCustomer.strategy||'-'}</p></div>
+                            </div>
+                            <div className="lg:col-span-2 bg-white rounded-xl border shadow-sm overflow-hidden">
+                                <div className="p-4 border-b bg-slate-50 flex justify-between"><h3 className="font-bold flex gap-2"><Activity size={18} className="text-blue-600"/> Activity Feed</h3></div>
+                                <div className="p-4 border-b bg-blue-50/30"><div className="flex gap-2"><input type="text" placeholder="พิมพ์บันทึก..." className="flex-1 border rounded-lg px-4 py-2" value={newActivityNote} onChange={e=>setNewActivityNote(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleAddActivity('Note')}/><button onClick={()=>handleAddActivity('Note')} className="bg-blue-600 text-white px-4 py-2 rounded-lg">Post</button></div><div className="flex gap-2 mt-2"><button onClick={()=>handleAddActivity('Call')} className="text-xs px-3 py-1 bg-white border rounded-full">Call Log</button><button onClick={()=>handleAddActivity('Meeting')} className="text-xs px-3 py-1 bg-white border rounded-full">Meeting</button></div></div>
+                                <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                                    {currentCustomerActivities.map(a=>(
+                                        <div key={a.id} className="flex gap-4"><div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${a.type==='Sale'?'bg-green-500':a.type==='Visit'?'bg-blue-500':'bg-slate-400'}`}>{a.type[0]}</div><div className="flex-1 pb-4 border-b last:border-0">
+                                            <div className="flex justify-between"><span className="font-bold text-sm">{a.type} <span className="font-normal text-slate-400 ml-2">by {a.by}</span></span><span className="text-xs text-slate-400"><span>{safeDate(a.date).toLocaleDateString('th-TH')}</span></span></div><p className="text-sm mt-1 text-slate-600">{a.note}</p>
+                                        </div></div>
+                                    ))}
+                                    {currentCustomerActivities.length===0 && <p className="text-center text-slate-400">ไม่มีกิจกรรม</p>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const renderVisitPlanView = () => {
+                const myPlans = visitPlans.filter(p => user?.role === 'admin' || p.owner === user?.username);
+                const upcoming = myPlans.filter(p=>p.status!=='Completed'&&p.status!=='Cancelled');
+                const done = myPlans.filter(p=>p.status==='Completed');
+                return (
+                    <div className="space-y-6 animate-in fade-in">
+                        <div className="flex justify-between items-center mb-2"><div><h1 className="text-2xl font-bold">Visit Plan</h1><p className="text-slate-500">จัดการแผนเข้าเยี่ยม</p></div><button onClick={()=>setIsAddVisitPlanOpen(true)} className="flex gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-lg hover:bg-slate-800"><CalendarCheck size={18}/> สร้างแผนใหม่</button></div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4"><StatCard title="รอเข้าเยี่ยม" value={upcoming.length} /><StatCard title="เข้าเยี่ยมแล้ว" value={done.length} color="green"/><StatCard title="Completion" value={`${myPlans.length>0?Math.round((done.length/myPlans.length)*100):0}%`} color="slate"/></div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="bg-white rounded-xl shadow-sm border overflow-hidden"><div className="p-4 border-b bg-blue-50/30 flex justify-between"><h2 className="font-bold flex gap-2"><Calendar className="text-blue-600"/> Upcoming</h2></div><div className="max-h-[500px] overflow-y-auto divide-y">{upcoming.length===0?<p className="p-8 text-center text-slate-400">ไม่มีแผนงาน</p>:upcoming.map(p=>(<div key={p.id} className="p-4 flex justify-between items-start hover:bg-slate-50"><div className="flex gap-3"><div className="bg-slate-100 p-2 rounded text-center min-w-[60px]"><span className="text-xs text-slate-500 font-bold block uppercase">{safeDate(p.date).toLocaleString('en-US',{month:'short'})}</span><span className="text-xl font-bold">{safeDate(p.date).getDate()}</span></div><div><h4 className="font-bold hover:text-blue-600 cursor-pointer" onClick={()=>{setSelectedCustomerId(p.customerId);setCurrentView('customerDetail')}}>{p.customerName}</h4><p className="text-sm text-slate-500">{p.time} • {p.objective}</p></div></div><div className="flex gap-2"><button onClick={()=>handleCompleteVisitPlan(p)} className="p-2 text-green-600 hover:bg-green-50 rounded"><CheckCircle size={16}/></button><button onClick={()=>handleDeleteVisitPlan(p.id)} className="p-2 text-slate-400 hover:text-red-500"><Trash2 size={16}/></button></div></div>))}</div></div>
+                            <div className="bg-white rounded-xl shadow-sm border overflow-hidden"><div className="p-4 border-b bg-slate-50"><h2 className="font-bold flex gap-2"><CheckCircle2 className="text-green-600"/> History</h2></div><div className="max-h-[500px] overflow-y-auto divide-y">{done.length===0?<p className="p-8 text-center text-slate-400">ไม่มีประวัติ</p>:done.map(p=>(<div key={p.id} className="p-4 flex justify-between hover:bg-slate-50 opacity-75"><div className="flex gap-3 items-center"><div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600"><CheckCircle2 size={16}/></div><div><h4 className="font-medium">{p.customerName}</h4><p className="text-xs text-slate-500">Visited {safeDate(p.date).toLocaleDateString('th-TH')}</p></div></div><span className="px-2 py-1 bg-slate-100 text-xs rounded border">Completed</span></div>))}</div></div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const renderCustomerListView = () => (
+                <div className="space-y-6 animate-in fade-in">
+                    <div className="flex justify-between items-center mb-2"><div><h1 className="text-2xl font-bold">รายชื่อลูกค้า</h1><p className="text-slate-500">Customer Port</p></div><div className="flex gap-2"><button onClick={handleExportCustomers} className="flex gap-2 bg-white border px-4 py-2.5 rounded-lg hover:bg-slate-50"><Download size={18}/> Export</button><button onClick={openAddCustomerModal} className="flex gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-lg hover:bg-slate-800"><UserPlus size={18}/> Add Customer</button></div></div>
+                    <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                        <div className="p-4 border-b bg-slate-50 flex items-center gap-2"><Users size={18} className="text-slate-500"/><h2 className="font-bold">รายชื่อ ({filteredCustomers.length})</h2></div>
+                        <div className="divide-y">{filteredCustomers.length===0?<p className="p-8 text-center text-slate-500">ไม่พบข้อมูล</p>:filteredCustomers.map(c=>(<div key={c.id} onClick={()=>{setSelectedCustomerId(c.id);setCurrentView('customerDetail')}} className="p-4 flex justify-between items-center hover:bg-slate-50 cursor-pointer group"><div className="flex items-center gap-4"><div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm ${c.status.includes('Inactive')?'bg-red-500':'bg-blue-600'}`}>{(c.name||'').substring(0,2)}</div><div><h4 className="font-semibold group-hover:text-blue-600">{c.name} <span className="text-[10px] bg-slate-100 px-1 rounded border font-normal text-slate-500">{c.category.substring(0,10)}..</span></h4><div className="flex gap-3 text-xs text-slate-500"><span><Building2 size={12} className="inline"/> {c.category}</span><span><MapPin size={12} className="inline"/> {c.province}</span></div></div></div><div className="flex items-center gap-4"><span className={`text-xs px-2 rounded font-bold ${c.status==='Active'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}`}>{c.status.split(' ')[0]}</span><div className="flex gap-1"><button onClick={(e)=>{e.stopPropagation();openEditCustomerModal(c)}} className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded"><Pencil size={16}/></button><button onClick={(e)=>{e.stopPropagation();handleDeleteCustomer(c.id)}} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded"><Trash2 size={16}/></button><ChevronRight className="text-slate-300"/></div></div></div>))}</div>
+                    </div>
+                </div>
+            );
+
+            const renderUserManagementView = () => {
+                return (
+                    <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+                            <div>
+                                <h1 className="text-2xl font-bold text-slate-800">จัดการผู้ใช้งาน (User Management)</h1>
+                                <p className="text-slate-500">เพิ่มและจัดการสิทธิ์การเข้าใช้งานระบบ</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Create User Form */}
+                            <div className="lg:col-span-1">
+                                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 sticky top-24">
+                                    <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><UserPlus size={20} className="text-blue-600"/> สร้าง User ใหม่</h2>
+                                    <form onSubmit={handleCreateUser} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Username (สำหรับ Login)</label>
+                                            <input required type="text" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" 
+                                                value={newUserForm.username} onChange={(e) => setNewUserForm({...newUserForm, username: e.target.value})} placeholder="Ex. sale01" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                                            <input required type="password" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" 
+                                                value={newUserForm.password} onChange={(e) => setNewUserForm({...newUserForm, password: e.target.value})} placeholder="••••••" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">ชื่อที่แสดง (Display Name)</label>
+                                            <input required type="text" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" 
+                                                value={newUserForm.displayName} onChange={(e) => setNewUserForm({...newUserForm, displayName: e.target.value})} placeholder="Ex. Somchai (Sale)" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                                            <select className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                                value={newUserForm.role} onChange={(e) => setNewUserForm({...newUserForm, role: e.target.value})}>
+                                                <option value="user">User (พนักงานขายทั่วไป)</option>
+                                                <option value="admin">Admin (ผู้ดูแลระบบ)</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" disabled={isSubmitting} className="w-full mt-2 bg-slate-900 text-white py-2.5 rounded-lg font-bold hover:bg-slate-800 transition-colors shadow-lg flex justify-center items-center gap-2 disabled:opacity-70">
+                                            {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : 'สร้าง Account'}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            {/* User List */}
+                            <div className="lg:col-span-2">
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                                    <div className="p-5 border-b border-slate-100 bg-slate-50">
+                                        <h2 className="font-bold text-slate-800 flex items-center gap-2"><Users size={18} className="text-slate-500"/> รายชื่อผู้ใช้งานในระบบ</h2>
+                                        <p className="text-xs text-slate-400 mt-1">{GOOGLE_SCRIPT_URL ? 'ดึงข้อมูลจาก Cloud (Google Sheets)' : 'ข้อมูลในเครื่อง (Local Storage)'}</p>
+                                    </div>
+                                    <div className="divide-y divide-slate-50">
+                                        {allUsers.length === 0 ? (
+                                            <div className="p-8 text-center text-slate-500 italic">
+                                                <Database className="mx-auto mb-2 opacity-50" size={32}/>
+                                                ยังไม่มีรายชื่อผู้ใช้งาน
+                                            </div>
+                                        ) : (
+                                            allUsers.map((u, i) => (
+                                                <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 group">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600">
+                                                            {u.username.substring(0,2).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium text-sm text-slate-800">{u.displayName}</p>
+                                                            <p className="text-xs text-slate-400">@{u.username}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`text-xs px-2 py-1 rounded border ${u.role === 'admin' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-slate-100 text-slate-600'}`}>
+                                                            {u.role}
+                                                        </span>
+                                                        {u.username !== user.username && (
+                                                            <button onClick={() => handleDeleteUser(u.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100">
+                                                                <UserMinus size={16}/>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const renderDashboardView = () => {
+                const activeCount = customers.length;
+                const inactiveCount = customers.filter(c => c.status && c.status.includes('Inactive')).length;
+                const todayStr = new Date().toISOString().split('T')[0];
+                const todayPlans = visitPlans.filter(p => p.date === todayStr && p.status !== 'Completed').length;
+
+                return (
+                    <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+                            <div>
+                                <h1 className="text-2xl font-bold text-slate-800">Overview</h1>
+                                <p className="text-slate-500">
+                                    {GOOGLE_SCRIPT_URL 
+                                        ? <span className="flex items-center gap-1 text-green-600"><Database size={14}/> Connected to Cloud (Sheets)</span> 
+                                        : 'โหมดออฟไลน์ (บันทึกในเครื่อง)'}
+                                </p>
+                            </div>
+                            <div className="flex gap-2">
+                                <div className="bg-white border border-slate-200 rounded-lg p-1 flex items-center gap-2 px-3 text-sm text-slate-600">
+                                    <Calendar size={16} />
+                                    <input type="date" value={dashboardDateRange.start} onChange={(e) => setDashboardDateRange({...dashboardDateRange, start: e.target.value})} className="outline-none bg-transparent w-32" />
+                                    <span>-</span>
+                                    <input type="date" value={dashboardDateRange.end} onChange={(e) => setDashboardDateRange({...dashboardDateRange, end: e.target.value})} className="outline-none bg-transparent w-32" />
+                                </div>
+                                <button onClick={openAddCustomerModal} className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md">
+                                    <UserPlus size={18} /> <span>Add Customer</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {customers.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border-2 border-dashed border-slate-300 text-center">
+                                <div className="bg-blue-50 p-4 rounded-full mb-4"><Briefcase size={40} className="text-blue-500" /></div>
+                                <h2 className="text-xl font-bold text-slate-800 mb-2">เริ่มสร้างพอร์ตลูกค้าของคุณ</h2>
+                                <p className="text-slate-500 mb-6 max-w-md">กดปุ่มด้านล่างเพื่อเพิ่มลูกค้าใหม่ หรือใช้ข้อมูลตัวอย่างเพื่อทดสอบระบบ</p>
+                                <div className="flex gap-4">
+                                    <button onClick={seedData} className="px-6 py-3 border border-slate-200 text-slate-600 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center gap-2"><RefreshCcw size={18} /> ใช้ข้อมูลตัวอย่าง</button>
+                                    <button onClick={openAddCustomerModal} className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-lg shadow-blue-200"><UserPlus size={18} /> เพิ่มลูกค้าใหม่</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    {/* Changed Pipeline (Goal) to Total Revenue */}
+                                    <StatCard title="Total Revenue" value={`฿${(totalRevenue/1000000).toFixed(1)}M`} subtext="ยอดขายตามช่วงเวลา" trend="up" active={activeFilter === 'ALL'} onClick={() => setActiveFilter('ALL')} />
+                                    {/* Update onClick to switch view and filter */}
+                                    <StatCard title="Active Accounts" value={`${activeCount} ราย`} subtext="คลิกเพื่อดูทั้งหมด" trend="up" active={activeFilter === 'ALL'} onClick={() => { setActiveFilter('ALL'); setCurrentView('customerList'); }} />
+                                    <StatCard title="Inactive Accounts" value={`${inactiveCount} ราย`} subtext="คลิกเพื่อกรอง Inactive" trend="down" color="red" active={activeFilter === 'INACTIVE'} onClick={() => { setActiveFilter('INACTIVE'); setCurrentView('customerList'); }} />
+                                    <StatCard title="Visit Plan (Today)" value={`${todayPlans} ราย`} subtext="แผนเข้าเยี่ยมวันนี้" trend="up" active={currentView === 'visitPlan'} onClick={() => setCurrentView('visitPlan')} />
+                                </div>
+
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                                    <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-blue-50/50">
+                                        <div className="flex items-center gap-2">
+                                            <Activity size={18} className="text-blue-600"/>
+                                            <h2 className="font-bold text-slate-800"> 
+                                                Activity Logs (การเปลี่ยนแปลงล่าสุด)
+                                                <span className="ml-2 text-xs font-normal text-slate-500 bg-white px-2 py-0.5 rounded-full border">
+                                                    ช่วงวันที่เลือก: {recentActivities.length} รายการ
+                                                </span>
+                                            </h2>
+                                        </div>
+                                    </div>
+                                    <div className="divide-y divide-slate-50">
+                                        {recentActivities.length === 0 && <p className="p-8 text-center text-slate-500">ไม่มีกิจกรรมในช่วงวันที่เลือก</p>}
+                                        {recentActivities.map((act) => (
+                                            <div key={act.id} className="p-4 hover:bg-slate-50 transition-colors flex items-start justify-between group cursor-pointer" onClick={() => { setSelectedCustomerId(act.customerId); setCurrentView('customerDetail'); }}>
+                                                <div className="flex gap-4">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0 ${act.type === 'Visit' ? 'bg-blue-500' : act.type === 'Sale' ? 'bg-green-500' : act.type === 'System' ? 'bg-slate-400' : 'bg-orange-400'}`}>
+                                                        {act.type.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-slate-700 text-sm">{act.customerName}</span>
+                                                            <span className="text-xs bg-slate-100 text-slate-500 px-1.5 rounded border">{act.type}</span>
+                                                        </div>
+                                                        <p className="text-sm text-slate-600 mt-0.5">{act.note}</p>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <p className="text-xs text-slate-400 flex items-center gap-1"><Users size={10}/> {act.by}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <p className="text-xs text-slate-400">{safeDate(act.date).toLocaleDateString('th-TH')}</p>
+                                                    <p className="text-xs text-slate-300">{safeDate(act.date).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'})}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                );
+            };
+
+            return (
+                <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
+                    {toastMsg && <Toast message={toastMsg} onClose={() => setToastMsg(null)} />}
+                    {renderAddCustomerModal()}
+                    {renderAddVisitPlanModal()} 
+                    {renderUpdateRevenueModal()}
+                    
+                    <div className={`w-64 bg-slate-900 text-white flex-col fixed h-full z-20 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 shadow-xl md:shadow-none`}>
+                        <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                                <div className="bg-white p-1 rounded">
+                                     <span className="text-blue-800 font-bold">HP</span>
+                                </div>
+                                <span className="text-lg">Owner OS</span>
+                            </h1>
+                            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white transition-colors"><X size={24} /></button>
+                        </div>
+                        <div className="flex-1 p-4 space-y-2 overflow-y-auto">
+                            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3">Menu</div>
+                            <div onClick={() => { setCurrentView('dashboard'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer ${currentView === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <LayoutDashboard size={20} /><span className="font-medium">Dashboard</span>
+                            </div>
+                            <div onClick={() => { setCurrentView('customerList'); setIsSidebarOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer ${currentView === 'customerList' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <List size={20} /><span className="font-medium">Customer List</span>
+                            </div>
+                            
+                            {/* NEW MENU: Visit Plan */}
+                            <div onClick={() => { setCurrentView('visitPlan'); setIsSidebarOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer ${currentView === 'visitPlan' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <div className="relative">
+                                    <CalendarCheck size={20} />
+                                    {dueVisitCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
+                                            {dueVisitCount}
+                                        </span>
+                                    )}
+                                </div>
+                                <span className="font-medium">Visit Plan</span>
+                            </div>
+
+                             {/* Settings Menu */}
+                            <div onClick={() => { setCurrentView('settings'); setIsSidebarOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer ${currentView === 'settings' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <Settings size={20} /><span className="font-medium">ตั้งค่าผู้ใช้งาน</span>
+                            </div>
+
+                            {/* Admin Menu */}
+                            {user?.role === 'admin' && (
+                                <>
+                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-6">Admin Zone</div>
+                                    <div onClick={() => { setCurrentView('userManagement'); setIsSidebarOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer ${currentView === 'userManagement' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                        <UserCog size={20} /><span className="font-medium">Manage Users</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        <div className="p-4 border-t border-slate-800">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold overflow-hidden border border-slate-600">
+                                    {user?.photoURL ? (
+                                        <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                                    ) : (
+                                        (user?.displayName || user?.username || "U").substring(0, 2).toUpperCase()
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium">{user?.displayName || 'Sales Rep'}</p>
+                                    <p className="text-xs text-slate-500">Online ({user?.role === 'admin' ? 'Admin' : 'User'})</p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={handleLogout}
+                                className="w-full flex items-center justify-center gap-2 bg-slate-800 text-slate-300 py-2 rounded-lg hover:bg-slate-700 hover:text-white transition-colors text-sm"
+                            >
+                                <LogOut size={16} /> ออกจากระบบ
+                            </button>
+                            
+                            <div className="mt-6 pt-4 border-t border-slate-800/50 text-center">
+                                <p className="text-[10px] text-slate-500 opacity-60 leading-relaxed font-light">
+                                    B2B Owner OS 2025-2026; <br/>
+                                    All rights reserved by <br/>
+                                    Niwat Phongsuwan (ฺB2B Officer)
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 md:ml-64 transition-all duration-300">
+                        <div className="bg-white h-16 border-b flex items-center justify-between px-6 sticky top-0 z-10 shadow-sm">
+                            <div className="flex items-center gap-3 md:hidden">
+                                <button onClick={() => setIsSidebarOpen(true)} className="text-slate-500 hover:text-slate-800 transition-colors"><Menu size={24} /></button>
+                                <div className="font-bold text-slate-800 flex items-center gap-2">
+                                     <span className="text-blue-800 font-bold">HP</span>
+                                     <span>Owner OS</span>
+                                </div>
+                            </div>
+                            <div className="flex-1 max-w-xl mx-auto hidden md:block relative">
+                                <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                                <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="ค้นหาลูกค้า..." className="w-full bg-slate-50 border rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        </div>
+                        <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
+                            {currentView === 'dashboard' ? renderDashboardView() : 
+                             currentView === 'customerList' ? renderCustomerListView() :
+                             currentView === 'customerDetail' ? renderCustomerDetailView() : 
+                             currentView === 'settings' ? renderUserSettingsView() :
+                             currentView === 'userManagement' ? renderUserManagementView() : 
+                             currentView === 'visitPlan' ? renderVisitPlanView() : null}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        const root = createRoot(document.getElementById('root'));
+        root.render(<B2BAppFullStack />);
+    </script>
+</body>
+</html>
