@@ -2,7 +2,6 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <!-- Updated viewport settings for 100% scale and no zoom -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>HomePro B2B Owner OS</title>
     
@@ -114,6 +113,13 @@
             return isNaN(date.getTime()) ? new Date() : date;
         };
 
+        const safeDateStr = (d) => {
+            if (!d) return '';
+            const date = new Date(d);
+            if (isNaN(date.getTime())) return '';
+            return date.toISOString().split('T')[0];
+        };
+
         const getTodayStr = () => {
             const d = new Date();
             const year = d.getFullYear();
@@ -127,11 +133,6 @@
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, '0');
             return `${year}-${month}-01`;
-        };
-
-        const getFirstDayOfYearStr = () => {
-            const d = new Date();
-            return `${d.getFullYear()}-01-01`;
         };
 
         const formatThaiDate = (date) => {
@@ -195,7 +196,7 @@
             const [newActivityNote, setNewActivityNote] = useState('');
             const [editingCustomerId, setEditingCustomerId] = useState(null);
             const [isUpdateRevenueOpen, setIsUpdateRevenueOpen] = useState(false);
-            const [revenueUpdateForm, setRevenueUpdateForm] = useState({ amount: '', date: getTodayStr() });
+            const [revenueUpdateForm, setRevenueUpdateForm] = useState({ id: null, amount: '', date: getTodayStr() });
             const [isAddVisitPlanOpen, setIsAddVisitPlanOpen] = useState(false);
             const [newVisitPlan, setNewVisitPlan] = useState({ customerId: '', date: '', time: '10:00', objective: '' });
             const [newCustomerForm, setNewCustomerForm] = useState({ name: '', customerName: '', contact: '', phone: '', category: B2B_CATEGORIES[0], province: 'กรุงเทพมหานคร', tier: 'VIP', status: 'Active', strategy: '', homeCard: '', bizId: '' });
@@ -211,7 +212,7 @@
             useEffect(() => { 
                 if (user) {
                     setSettingsForm({ displayName: user.displayName || '', password: '', photoURL: user.photoURL || '' });
-                    setImgError(false); // Reset image error state on user change
+                    setImgError(false);
                 }
             }, [user]);
 
@@ -251,13 +252,12 @@
                             setCustomers(removeDuplicates(data.customers || []));
                             if (currUser?.role === 'admin' && data.users) setAllUsers(data.users);
                             
-                            // *** UPDATE USER FROM BACKEND ***
                             if (data.currentUser) {
                                 const updatedUser = { ...currUser, ...data.currentUser };
                                 if (JSON.stringify(updatedUser) !== JSON.stringify(currUser)) {
                                     setUser(updatedUser);
                                     localStorage.setItem('b2b_current_user', JSON.stringify(updatedUser));
-                                    setImgError(false); // Reset error on new data
+                                    setImgError(false);
                                 }
                             }
                         }
@@ -285,14 +285,8 @@
 
             const handleLogout = () => { 
                 try { localStorage.removeItem('b2b_current_user'); } catch(e) {}
-                setUser(null); 
-                setCustomers([]); 
-                setActivities([]); 
-                setVisitPlans([]); 
-                setSales([]); 
-                setAllUsers([]);
-                setSettingsForm({ displayName: '', password: '', photoURL: '' }); 
-                setCurrentView('dashboard'); 
+                setUser(null); setCustomers([]); setActivities([]); setVisitPlans([]); setSales([]); setAllUsers([]);
+                setSettingsForm({ displayName: '', password: '', photoURL: '' }); setCurrentView('dashboard'); 
             };
 
             const saveDataToSheet = async (type, data) => { if (!GOOGLE_SCRIPT_URL) return; await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'add', type, data }) }); };
@@ -306,7 +300,8 @@
                 if (coll === 'customers') setCustomers(prev => id ? prev.map(c => c.id === id ? { ...c, ...newData } : c) : (prev.some(c => String(c.name).trim() === String(item.name).trim()) ? prev : [...prev, item]));
                 else if (coll === 'activities') setActivities(prev => [...prev, { ...item, date: newData.date ? new Date(newData.date) : new Date() }].sort((a, b) => b.date - a.date));
                 else if (coll === 'visitPlans') setVisitPlans(prev => id ? prev.map(x => x.id === id ? { ...x, ...newData } : x) : [...prev, item].sort((a, b) => new Date(a.date) - new Date(b.date)));
-                else if (coll === 'sales') setSales(prev => [...prev, { ...item, date: newData.date ? new Date(newData.date) : new Date() }].sort((a, b) => b.date - a.date));
+                else if (coll === 'sales') setSales(prev => id ? prev.map(s => s.id === id ? { ...s, ...newData } : s).sort((a, b) => b.date - a.date) : [...prev, { ...item, date: newData.date ? new Date(newData.date) : new Date() }].sort((a, b) => b.date - a.date));
+                
                 if (GOOGLE_SCRIPT_URL) saveDataToSheet(coll, item).catch(console.error);
                 return item.id;
             };
@@ -323,7 +318,37 @@
             };
             const handleExportCustomers = () => { const h = ['ชื่อบริษัท','ชื่อลูกค้า','ผู้ติดต่อ','เบอร์โทร','ประเภทธุรกิจ','จังหวัด','Tier','Status','HomeCard','Biz ID']; const csv = [h.join(','), ...filteredCustomers.map(c => [`"${c.name||''}"`,`"${c.customerName||''}"`,`"${c.contact||''}"`,`"${c.phone||''}"`,`"${c.category||''}"`,`"${c.province||''}"`,`"${c.tier||''}"`,`"${c.status||''}"`,`"${c.homeCard||''}"`,`"${c.bizId||''}"`].join(','))].join('\n'); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'})); link.download = `customers_${getTodayStr()}.csv`; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
             const handleSaveCustomerForm = async (e) => { e.preventDefault(); if (isSubmitting) return; setIsSubmitting(true); try { if (!editingCustomerId && customers.some(c => String(c.name).trim().toLowerCase() === String(newCustomerForm.name).trim().toLowerCase())) { showToast("ชื่อซ้ำ"); setIsSubmitting(false); return; } const data = { ...newCustomerForm, owner: user?.username || 'admin', nextAction: editingCustomerId ? undefined : 'New Account' }; const savedId = await handleSaveData('customers', data, editingCustomerId); if (!editingCustomerId) { await handleSaveData('activities', { customerId: savedId, type: 'System', note: `New customer: ${data.name}`, by: user?.username, date: new Date() }); showToast("เพิ่มสำเร็จ"); setSelectedCustomerId(savedId); setCurrentView('customerDetail'); } else showToast("แก้ไขสำเร็จ"); setIsAddCustomerOpen(false); } catch(e) { showToast("Error"); } finally { setIsSubmitting(false); } };
-            const handleRecordSale = async (e) => { e.preventDefault(); if(!selectedCustomerId || !revenueUpdateForm.amount) return; setIsSubmitting(true); try { const amt = Number(revenueUpdateForm.amount); const dp = revenueUpdateForm.date.split('-'); const rd = new Date(parseInt(dp[0]), parseInt(dp[1])-1, parseInt(dp[2]), new Date().getHours(), new Date().getMinutes()); await handleSaveData('sales', { customerId: selectedCustomerId, amount: amt, date: rd, note: `ยอดขาย: ฿${amt.toLocaleString()}`, by: user?.username }); await handleSaveData('activities', { customerId: selectedCustomerId, type: 'Sale', note: `บันทึกยอดขาย: ฿${amt.toLocaleString()} (${formatThaiDate(rd)})`, by: user?.username, date: rd }); setIsUpdateRevenueOpen(false); setRevenueUpdateForm({ amount: '', date: getTodayStr() }); showToast("บันทึกแล้ว"); } catch(e) { showToast("Error"); } finally { setIsSubmitting(false); } };
+            
+            const handleRecordSale = async (e) => { 
+                e.preventDefault(); 
+                if(!selectedCustomerId || !revenueUpdateForm.amount) return; 
+                setIsSubmitting(true); 
+                try { 
+                    const amt = Number(revenueUpdateForm.amount); 
+                    const dp = revenueUpdateForm.date.split('-'); 
+                    const rd = new Date(parseInt(dp[0]), parseInt(dp[1])-1, parseInt(dp[2]), new Date().getHours(), new Date().getMinutes()); 
+                    
+                    if (revenueUpdateForm.id) {
+                        // อัปเดตยอดขาย
+                        await handleSaveData('sales', { amount: amt, date: rd, by: user?.username }, revenueUpdateForm.id);
+                        await handleSaveData('activities', { customerId: selectedCustomerId, type: 'System', note: `แก้ไขยอดขายเป็น: ฿${amt.toLocaleString()} (${formatThaiDate(rd)})`, by: user?.username, date: new Date() }); 
+                        showToast("แก้ไขยอดขายแล้ว");
+                    } else {
+                        // บันทึกยอดขายใหม่
+                        await handleSaveData('sales', { customerId: selectedCustomerId, amount: amt, date: rd, note: `ยอดขาย: ฿${amt.toLocaleString()}`, by: user?.username }); 
+                        await handleSaveData('activities', { customerId: selectedCustomerId, type: 'Sale', note: `บันทึกยอดขาย: ฿${amt.toLocaleString()} (${formatThaiDate(rd)})`, by: user?.username, date: rd }); 
+                        showToast("บันทึกแล้ว"); 
+                    }
+                    
+                    setIsUpdateRevenueOpen(false); 
+                    setRevenueUpdateForm({ id: null, amount: '', date: getTodayStr() }); 
+                } catch(e) { 
+                    showToast("Error"); 
+                } finally { 
+                    setIsSubmitting(false); 
+                } 
+            };
+
             const handleCreateUser = async (e) => { e.preventDefault(); if(!newUserForm.username) return; setIsSubmitting(true); try { const nu = { id: crypto.randomUUID(), username: newUserForm.username, password: newUserForm.password, displayName: newUserForm.displayName || newUserForm.username, role: newUserForm.role, createdAt: new Date().toISOString() }; if(GOOGLE_SCRIPT_URL) await createUserInSheet(nu); setAllUsers(p => [...p, nu]); showToast("User created"); setNewUserForm({ username: '', password: '', displayName: '', role: 'user' }); } catch(e) { showToast("Error"); } finally { setIsSubmitting(false); } };
             const handleDeleteUser = async (targetId) => { if(!confirm("ต้องการลบผู้ใช้งานนี้?")) return; setAllUsers(prev => prev.filter(u => u.id !== targetId)); showToast("ลบผู้ใช้งานเรียบร้อย"); };
             const handleCreateVisitPlan = async (e) => { e.preventDefault(); if(!newVisitPlan.customerId) return; setIsSubmitting(true); try { const c = customers.find(x=>x.id===newVisitPlan.customerId); await handleSaveData('visitPlans', { ...newVisitPlan, customerName: c?c.name:'Unknown', status: 'Planned', owner: user?.username }); showToast("Saved"); setIsAddVisitPlanOpen(false); setNewVisitPlan({ customerId: '', date: getTodayStr(), time: '10:00', objective: '' }); } catch(e) { showToast("Error"); } finally { setIsSubmitting(false); } };
@@ -338,9 +363,8 @@
             // 1. Create a map of latest sale date for each customer
             const lastSaleMap = useMemo(() => {
                 const map = {};
-                // sales is already sorted desc by date in loadData
                 sales.forEach(s => {
-                    if (!map[s.customerId]) {
+                    if (!map[s.customerId] || new Date(s.date) > map[s.customerId]) {
                         map[s.customerId] = new Date(s.date);
                     }
                 });
@@ -350,11 +374,10 @@
             // 2. Helper to calculate status based on days diff
             const getCalculatedStatus = (c) => {
                 const lastDate = lastSaleMap[c.id];
-                // If no sales record, fallback to DB status (usually Active for new, or manual override)
                 if (!lastDate) return c.status || 'Active'; 
 
                 const today = new Date();
-                const diffTime = today - lastDate; // milliseconds
+                const diffTime = today - lastDate;
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                 if (diffDays <= 90) return 'Active';
@@ -367,7 +390,6 @@
             const customersWithStatus = useMemo(() => {
                 return customers.map(c => ({
                     ...c,
-                    // OVERRIDE status here dynamically
                     status: getCalculatedStatus(c) 
                 }));
             }, [customers, lastSaleMap]);
@@ -376,21 +398,54 @@
             const filteredCustomers = useMemo(() => removeDuplicates(customersWithStatus).filter(c => { 
                 if(user?.role!=='admin' && c.owner!==user?.username) return false; 
                 const s = searchTerm.toLowerCase(); 
-                return (c.name.toLowerCase().includes(s) || c.contact.toLowerCase().includes(s)) && (activeFilter==='ALL' || (activeFilter==='INACTIVE' && c.status.includes('Inactive')) || (activeFilter==='TOP20' && c.tier==='Top 20')); 
+                
+                // ค้นหาจากทุกๆ ฟิลด์ของลูกค้า
+                const isMatchSearch = s === '' || [
+                    c.name, c.customerName, c.contact, c.phone, 
+                    c.category, c.province, c.tier, c.status, 
+                    c.homeCard, c.bizId, c.strategy, c.owner
+                ].some(val => val && String(val).toLowerCase().includes(s));
+
+                const isMatchFilter = (activeFilter==='ALL' || (activeFilter==='INACTIVE' && c.status.includes('Inactive')) || (activeFilter==='TOP20' && c.tier==='Top 20'));
+                
+                return isMatchSearch && isMatchFilter; 
             }), [customersWithStatus, searchTerm, activeFilter, user]);
             
-            const totalRevenue = useMemo(() => sales.filter(s => { const c = customers.find(cu => cu.id === s.customerId); if(user?.role!=='admin' && c?.owner!==user?.username) return false; return isDateInRange(s.date, dashboardDateRange.start, dashboardDateRange.end); }).reduce((a,b)=>a+(Number(b.amount)||0),0), [sales, dashboardDateRange, customers, user]);
+            // สรุปยอดของตัว User เอง
+            const myRevenue = useMemo(() => sales.filter(s => { 
+                const c = customers.find(cu => cu.id === s.customerId); 
+                if(c?.owner!==user?.username) return false; 
+                return isDateInRange(s.date, dashboardDateRange.start, dashboardDateRange.end); 
+            }).reduce((a,b)=>a+(Number(b.amount)||0),0), [sales, dashboardDateRange, customers, user]);
+            
+            const myActiveCount = customersWithStatus.filter(c => c.owner === user?.username && c.status === 'Active').length;
+            const myInactiveCount = customersWithStatus.filter(c => c.owner === user?.username && c.status.includes('Inactive')).length;
+            const todayStr = new Date().toISOString().split('T')[0];
+            const myTodayPlans = visitPlans.filter(p => p.owner === user?.username && p.date === todayStr && p.status !== 'Completed').length;
+
+            // สรุปยอดรวมทั้งทีม (สำหรับ Admin)
+            const teamRevenue = useMemo(() => sales.filter(s => { 
+                const c = customers.find(cu => cu.id === s.customerId); 
+                if(!c) return false;
+                return isDateInRange(s.date, dashboardDateRange.start, dashboardDateRange.end); 
+            }).reduce((a,b)=>a+(Number(b.amount)||0),0), [sales, dashboardDateRange, customers]);
+            
+            const teamActiveCount = customersWithStatus.filter(c => c.status === 'Active').length;
+            const teamInactiveCount = customersWithStatus.filter(c => c.status.includes('Inactive')).length;
+            const teamTodayPlans = visitPlans.filter(p => p.date === todayStr && p.status !== 'Completed').length;
+
+
             const recentActivities = useMemo(() => activities.filter(a => { const c = customers.find(cu => cu.id === a.customerId); if(user?.role!=='admin' && c?.owner!==user?.username) return false; return isDateInRange(a.date, dashboardDateRange.start, dashboardDateRange.end); }).slice(0,50).map(a => ({...a, customerName: customers.find(c=>c.id===a.customerId)?.name||'Unknown'})).filter(a => a.customerName.toLowerCase().includes(searchTerm.toLowerCase())), [activities, customers, searchTerm, dashboardDateRange, user]);
             
             // 5. Update selectedCustomer to use enriched customers
             const selectedCustomer = useMemo(() => customersWithStatus.find(c => c.id === selectedCustomerId), [customersWithStatus, selectedCustomerId]);
-            
             const currentCustomerActivities = useMemo(() => selectedCustomer ? activities.filter(a => a.customerId === selectedCustomerId) : [], [activities, selectedCustomerId]);
+            const currentCustomerSales = useMemo(() => selectedCustomer ? sales.filter(s => s.customerId === selectedCustomerId).sort((a,b) => new Date(b.date) - new Date(a.date)) : [], [sales, selectedCustomerId]);
 
             if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-600 mb-2" size={32}/><p className="text-slate-500">{user ? `สวัสดี คุณ ${user.displayName||user.username} ขอให้วันนี้เป็นวันที่ดีนะ ^_^` : 'Connecting...'}</p></div>;
             if (!user) return <LoginScreen onLogin={handleLogin} loading={isLoggingIn} error={loginError} />;
 
-            // --- Render Functions (Declared AFTER handlers) ---
+            // --- Render Functions ---
             const renderAddCustomerModal = () => isAddCustomerOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
@@ -419,7 +474,7 @@
             const renderUpdateRevenueModal = () => isUpdateRevenueOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
-                        <div className="px-6 py-4 border-b flex justify-between bg-green-50 sticky top-0"><h3 className="font-bold text-green-700 flex gap-2"><DollarSign/> บันทึกยอดขาย</h3><button onClick={()=>setIsUpdateRevenueOpen(false)}><X/></button></div>
+                        <div className="px-6 py-4 border-b flex justify-between bg-green-50 sticky top-0"><h3 className="font-bold text-green-700 flex gap-2"><DollarSign/> {revenueUpdateForm.id ? 'แก้ไขยอดขาย' : 'บันทึกยอดขาย'}</h3><button onClick={()=>setIsUpdateRevenueOpen(false)}><X/></button></div>
                         <form onSubmit={handleRecordSale} className="p-6 space-y-4">
                             <div><label className="text-sm block mb-1">ยอดขาย (บาท)</label><input required type="number" autoFocus className="w-full border rounded-lg px-3 py-2 text-lg font-bold text-green-700" value={revenueUpdateForm.amount} onChange={e=>setRevenueUpdateForm({...revenueUpdateForm, amount:e.target.value})}/></div>
                             <div><label className="text-sm block mb-1">วันที่</label><input required type="date" className="w-full border rounded-lg px-3 py-2" value={revenueUpdateForm.date} onChange={e=>setRevenueUpdateForm({...revenueUpdateForm, date:e.target.value})}/></div>
@@ -472,31 +527,62 @@
                     <div className="space-y-6 animate-in fade-in">
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                             <div className="flex items-center gap-4 w-full sm:w-auto"><button onClick={()=>setCurrentView('customerList')} className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft/></button><div><h1 className="text-2xl font-bold flex items-center gap-2">{selectedCustomer.name} <span className="text-xs bg-yellow-100 text-yellow-800 px-2 rounded-full border border-yellow-200">{selectedCustomer.tier}</span> <span className={`text-xs px-2 rounded-full border ${getStatusColor(selectedCustomer.status)}`}>{selectedCustomer.status}</span></h1>{selectedCustomer.customerName && <p className="text-lg text-slate-700 mt-0.5">{selectedCustomer.customerName}</p>}<div className="flex gap-3 text-slate-500 text-sm mt-1"><span><MapPin size={14} className="inline"/> {selectedCustomer.province}</span><span><Phone size={14} className="inline"/> {selectedCustomer.phone}</span></div></div></div>
-                            <div className="flex gap-2 w-full sm:w-auto justify-end"><button onClick={()=>openEditCustomerModal(selectedCustomer)} className="px-4 py-2 border rounded-lg flex items-center gap-2 hover:bg-slate-50"><Pencil size={16}/> แก้ไข</button><button onClick={()=>setIsUpdateRevenueOpen(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2 hover:bg-green-700 shadow-md"><DollarSign size={16}/> อัปเดตยอด</button></div>
+                            <div className="flex gap-2 w-full sm:w-auto justify-end">
+                                <button onClick={()=>openEditCustomerModal(selectedCustomer)} className="px-4 py-2 border rounded-lg flex items-center gap-2 hover:bg-slate-50"><Pencil size={16}/> แก้ไข</button>
+                                <button onClick={()=>{ setRevenueUpdateForm({ id: null, amount: '', date: getTodayStr() }); setIsUpdateRevenueOpen(true); }} className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2 hover:bg-green-700 shadow-md"><DollarSign size={16}/> อัปเดตยอด</button>
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="bg-white p-6 rounded-xl border shadow-sm"><div className="flex justify-between mb-2"><p className="text-slate-500 text-sm font-medium">ยอดขายสะสม</p></div><div className="flex items-center gap-1 text-xs mb-3"><input type="date" value={customerDateRange.start} onChange={e=>setCustomerDateRange({...customerDateRange, start:e.target.value})} className="border rounded px-1"/>-<input type="date" value={customerDateRange.end} onChange={e=>setCustomerDateRange({...customerDateRange, end:e.target.value})} className="border rounded px-1"/></div><h3 className="text-3xl font-bold text-green-600">฿{lifeTimeRev.toLocaleString()}</h3></div>
                             <div className="bg-white p-6 rounded-xl border shadow-sm"><p className="text-slate-500 text-sm font-medium">Next Action</p><div className="mt-4 font-bold text-slate-800">{selectedCustomer.nextAction||'None'}</div><button onClick={()=>{setIsAddVisitPlanOpen(true); setNewVisitPlan({...newVisitPlan, customerId: selectedCustomer.id})}} className="text-xs text-blue-600 mt-2 hover:underline">+ สร้างแผนเข้าเยี่ยม</button></div>
                         </div>
+                        
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="bg-white p-6 rounded-xl border shadow-sm space-y-3 text-sm">
-                                <h3 className="font-bold flex gap-2 mb-4"><FileText size={18}/> ข้อมูลทั่วไป</h3>
-                                <div className="flex justify-between border-b pb-2"><span className="text-slate-500">Contact</span><span className="font-medium">{selectedCustomer.contact}</span></div>
-                                <div className="flex justify-between border-b pb-2"><span className="text-slate-500">Category</span><span className="font-medium">{selectedCustomer.category}</span></div>
-                                <div className="flex justify-between border-b pb-2"><span className="text-slate-500">HomeCard</span><span className="font-medium">{selectedCustomer.homeCard||'-'}</span></div>
-                                <div className="flex justify-between border-b pb-2"><span className="text-slate-500">Biz ID</span><span className="font-medium">{selectedCustomer.bizId||'-'}</span></div>
-                                <div className="pt-2"><span className="text-slate-500 block mb-1">Strategy</span><p className="bg-slate-50 p-2 rounded">{selectedCustomer.strategy||'-'}</p></div>
+                            {/* Left Column */}
+                            <div className="space-y-6">
+                                {/* ข้อมูลทั่วไป */}
+                                <div className="bg-white p-6 rounded-xl border shadow-sm space-y-3 text-sm">
+                                    <h3 className="font-bold flex gap-2 mb-4"><FileText size={18}/> ข้อมูลทั่วไป</h3>
+                                    <div className="flex justify-between border-b pb-2"><span className="text-slate-500">Contact</span><span className="font-medium">{selectedCustomer.contact}</span></div>
+                                    <div className="flex justify-between border-b pb-2"><span className="text-slate-500">Category</span><span className="font-medium">{selectedCustomer.category}</span></div>
+                                    <div className="flex justify-between border-b pb-2"><span className="text-slate-500">HomeCard</span><span className="font-medium">{selectedCustomer.homeCard||'-'}</span></div>
+                                    <div className="flex justify-between border-b pb-2"><span className="text-slate-500">Biz ID</span><span className="font-medium">{selectedCustomer.bizId||'-'}</span></div>
+                                    <div className="pt-2"><span className="text-slate-500 block mb-1">Strategy</span><p className="bg-slate-50 p-2 rounded">{selectedCustomer.strategy||'-'}</p></div>
+                                </div>
+                                
+                                {/* ประวัติยอดขาย (Sales History) */}
+                                <div className="bg-white p-6 rounded-xl border shadow-sm space-y-3 text-sm">
+                                    <h3 className="font-bold flex gap-2 mb-4 text-green-700"><DollarSign size={18}/> ประวัติยอดขาย</h3>
+                                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                                        {currentCustomerSales.length === 0 ? <p className="text-slate-400 text-center py-4">ยังไม่มียอดขาย</p> : currentCustomerSales.map(s => (
+                                            <div key={s.id} className="flex justify-between items-center p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-100 transition-colors">
+                                                <div>
+                                                    <p className="font-bold text-green-700 text-base">฿{Number(s.amount).toLocaleString()}</p>
+                                                    <p className="text-xs text-slate-500">{formatThaiDate(s.date)} • {s.by}</p>
+                                                </div>
+                                                <button onClick={() => {
+                                                    setRevenueUpdateForm({ id: s.id, amount: s.amount, date: safeDateStr(s.date) });
+                                                    setIsUpdateRevenueOpen(true);
+                                                }} className="text-slate-400 hover:text-blue-600 p-2 hover:bg-blue-50 rounded transition-colors" title="แก้ไขยอดขาย">
+                                                    <Pencil size={16}/>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="lg:col-span-2 bg-white rounded-xl border shadow-sm overflow-hidden">
+                            
+                            {/* Right Column: Activity Feed */}
+                            <div className="lg:col-span-2 bg-white rounded-xl border shadow-sm overflow-hidden h-fit">
                                 <div className="p-4 border-b bg-slate-50 flex justify-between"><h3 className="font-bold flex gap-2"><Activity size={18} className="text-blue-600"/> Activity Feed</h3></div>
                                 <div className="p-4 border-b bg-blue-50/30"><div className="flex gap-2"><input type="text" placeholder="พิมพ์บันทึก..." className="flex-1 border rounded-lg px-4 py-2" value={newActivityNote} onChange={e=>setNewActivityNote(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleAddActivity('Note')}/><button onClick={()=>handleAddActivity('Note')} className="bg-blue-600 text-white px-4 py-2 rounded-lg">Post</button></div><div className="flex gap-2 mt-2"><button onClick={()=>handleAddActivity('Call')} className="text-xs px-3 py-1 bg-white border rounded-full">Call Log</button><button onClick={()=>handleAddActivity('Meeting')} className="text-xs px-3 py-1 bg-white border rounded-full">Meeting</button></div></div>
-                                <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                                <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
                                     {currentCustomerActivities.map(a=>(
                                         <div key={a.id} className="flex gap-4"><div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${a.type==='Sale'?'bg-green-500':a.type==='Visit'?'bg-blue-500':'bg-slate-400'}`}>{a.type[0]}</div><div className="flex-1 pb-4 border-b last:border-0">
                                             <div className="flex justify-between"><span className="font-bold text-sm">{a.type} <span className="font-normal text-slate-400 ml-2">by {a.by}</span></span><span className="text-xs text-slate-400"><span>{safeDate(a.date).toLocaleDateString('th-TH')}</span></span></div><p className="text-sm mt-1 text-slate-600">{a.note}</p>
                                         </div></div>
                                     ))}
-                                    {currentCustomerActivities.length===0 && <p className="text-center text-slate-400">ไม่มีกิจกรรม</p>}
+                                    {currentCustomerActivities.length===0 && <p className="text-center text-slate-400 py-8">ไม่มีกิจกรรม</p>}
                                 </div>
                             </div>
                         </div>
@@ -538,7 +624,7 @@
                     </div>
                     <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
                         <div className="p-4 border-b bg-slate-50 flex items-center gap-2"><Users size={18} className="text-slate-500"/><h2 className="font-bold">รายชื่อ ({filteredCustomers.length})</h2></div>
-                        <div className="divide-y">{filteredCustomers.length===0?<p className="p-8 text-center text-slate-500">ไม่พบข้อมูล</p>:filteredCustomers.map(c=>(<div key={c.id} onClick={()=>{setSelectedCustomerId(c.id);setCurrentView('customerDetail')}} className="p-3 md:p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 md:gap-4 hover:bg-slate-50 cursor-pointer group"><div className="flex items-center gap-4 w-full sm:w-auto"><div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm ${getAvatarColor(c.status)}`}>{(c.name||'').substring(0,2)}</div><div><h4 className="font-semibold group-hover:text-blue-600">{c.name} <span className="text-[10px] bg-slate-100 px-1 rounded border font-normal text-slate-500">{c.category.substring(0,10)}..</span></h4><div className="flex gap-3 text-xs text-slate-500"><span><Building2 size={12} className="inline"/> {c.category}</span><span><MapPin size={12} className="inline"/> {c.province}</span></div></div></div><div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end"><span className={`text-xs px-2 py-0.5 rounded font-bold border ${getStatusColor(c.status)}`}>{c.status.split(' ')[0]}</span><div className="flex gap-1"><button onClick={(e)=>{e.stopPropagation();openEditCustomerModal(c)}} className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded"><Pencil size={16}/></button><button onClick={(e)=>{e.stopPropagation();handleDeleteCustomer(c.id)}} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded"><Trash2 size={16}/></button><ChevronRight className="text-slate-300"/></div></div></div>))}</div>
+                        <div className="divide-y">{filteredCustomers.length===0?<p className="p-8 text-center text-slate-500">ไม่พบข้อมูล</p>:filteredCustomers.map(c=>(<div key={c.id} onClick={()=>{setSelectedCustomerId(c.id);setCurrentView('customerDetail')}} className="p-3 md:p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 md:gap-4 hover:bg-slate-50 cursor-pointer group"><div className="flex items-center gap-4 w-full sm:w-auto"><div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm ${getAvatarColor(c.status)}`}>{(c.name||'').substring(0,2)}</div><div><h4 className="font-semibold group-hover:text-blue-600">{c.name} {user?.role === 'admin' && <span className="text-[10px] ml-1 bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200"><User size={10} className="inline"/> {c.owner}</span>}</h4><div className="flex gap-3 text-xs text-slate-500 mt-0.5"><span><Building2 size={12} className="inline"/> {c.category}</span><span><MapPin size={12} className="inline"/> {c.province}</span></div></div></div><div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end"><span className={`text-xs px-2 py-0.5 rounded font-bold border ${getStatusColor(c.status)}`}>{c.status.split(' ')[0]}</span><div className="flex gap-1"><button onClick={(e)=>{e.stopPropagation();openEditCustomerModal(c)}} className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded"><Pencil size={16}/></button><button onClick={(e)=>{e.stopPropagation();handleDeleteCustomer(c.id)}} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded"><Trash2 size={16}/></button><ChevronRight className="text-slate-300"/></div></div></div>))}</div>
                     </div>
                 </div>
             );
@@ -636,11 +722,6 @@
             };
 
             const renderDashboardView = () => {
-                const activeCount = customers.length;
-                const inactiveCount = customers.filter(c => c.status && c.status.includes('Inactive')).length;
-                const todayStr = new Date().toISOString().split('T')[0];
-                const todayPlans = visitPlans.filter(p => p.date === todayStr && p.status !== 'Completed').length;
-
                 return (
                     <div className="space-y-6 animate-in fade-in duration-500">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
@@ -681,23 +762,38 @@
                             </div>
                         ) : (
                             <>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    {/* Changed Pipeline (Goal) to Total Revenue */}
-                                    <StatCard title="Total Revenue" value={`฿${(totalRevenue/1000000).toFixed(1)}M`} subtext="ยอดขายตามช่วงเวลา" trend="up" active={activeFilter === 'ALL'} onClick={() => setActiveFilter('ALL')} />
-                                    {/* Update onClick to switch view and filter */}
-                                    <StatCard title="Active Accounts" value={`${activeCount} ราย`} subtext="คลิกเพื่อดูทั้งหมด" trend="up" active={activeFilter === 'ALL'} onClick={() => { setActiveFilter('ALL'); setCurrentView('customerList'); }} />
-                                    <StatCard title="Inactive Accounts" value={`${inactiveCount} ราย`} subtext="คลิกเพื่อกรอง Inactive" trend="down" color="red" active={activeFilter === 'INACTIVE'} onClick={() => { setActiveFilter('INACTIVE'); setCurrentView('customerList'); }} />
-                                    <StatCard title="Visit Plan (Today)" value={`${todayPlans} ราย`} subtext="แผนเข้าเยี่ยมวันนี้" trend="up" active={currentView === 'visitPlan'} onClick={() => setCurrentView('visitPlan')} />
+                                {/* --- ส่วนของผู้ดูแลระบบ (ภาพรวมทั้งทีม) --- */}
+                                {user?.role === 'admin' && (
+                                    <div className="mb-8 p-4 md:p-6 bg-purple-50/50 border border-purple-100 rounded-2xl shadow-sm">
+                                        <h2 className="text-lg font-bold text-purple-900 mb-4 flex items-center gap-2"><Building2 size={20}/> ภาพรวมทั้งทีม (Team Overview)</h2>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            <StatCard title="Team Revenue" value={`฿${(teamRevenue/1000000).toFixed(1)}M`} subtext="ยอดขายรวมทั้งทีม" trend="up" color="purple" />
+                                            <StatCard title="Team Active" value={`${teamActiveCount} ราย`} subtext="ลูกค้า Active ทั้งทีม" trend="up" color="purple" />
+                                            <StatCard title="Team Inactive" value={`${teamInactiveCount} ราย`} subtext="ลูกค้า Inactive ทั้งทีม" trend="down" color="red" />
+                                            <StatCard title="Team Visit Plan" value={`${teamTodayPlans} ราย`} subtext="แผนเข้าเยี่ยมวันนี้ทั้งทีม" trend="up" color="purple" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* --- ส่วนของ User (ภาพรวมของฉัน) --- */}
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><User size={20} className="text-blue-600"/> ภาพรวมของฉัน (My Overview)</h2>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <StatCard title="My Revenue" value={`฿${(myRevenue/1000000).toFixed(1)}M`} subtext="ยอดขายของฉัน" trend="up" active={activeFilter === 'ALL'} onClick={() => setActiveFilter('ALL')} color="blue" />
+                                        <StatCard title="My Active" value={`${myActiveCount} ราย`} subtext="คลิกเพื่อดูทั้งหมด" trend="up" active={activeFilter === 'ALL'} onClick={() => { setActiveFilter('ALL'); setCurrentView('customerList'); }} color="blue" />
+                                        <StatCard title="My Inactive" value={`${myInactiveCount} ราย`} subtext="คลิกเพื่อกรอง Inactive" trend="down" color="red" active={activeFilter === 'INACTIVE'} onClick={() => { setActiveFilter('INACTIVE'); setCurrentView('customerList'); }} />
+                                        <StatCard title="My Visit Plan" value={`${myTodayPlans} ราย`} subtext="แผนเข้าเยี่ยมวันนี้" trend="up" active={currentView === 'visitPlan'} onClick={() => setCurrentView('visitPlan')} color="blue" />
+                                    </div>
                                 </div>
 
-                                <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden mt-6">
                                     <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-blue-50/50">
                                         <div className="flex items-center gap-2">
                                             <Activity size={18} className="text-blue-600"/>
                                             <h2 className="font-bold text-slate-800"> 
-                                                Activity Logs (การเปลี่ยนแปลงล่าสุด)
+                                                Activity Logs
                                                 <span className="ml-2 text-xs font-normal text-slate-500 bg-white px-2 py-0.5 rounded-full border">
-                                                    ช่วงวันที่เลือก: {recentActivities.length} รายการ
+                                                    ช่วงที่เลือก: {recentActivities.length} รายการ
                                                 </span>
                                             </h2>
                                         </div>
@@ -827,12 +923,12 @@
                                 <button onClick={() => setIsSidebarOpen(true)} className="text-slate-500 hover:text-slate-800 transition-colors"><Menu size={24} /></button>
                                 <div className="font-bold text-slate-800 flex items-center gap-2">
                                      <span className="text-blue-800 font-bold">HP</span>
-                                     <span>Owner OS</span>
+                                     <span className="hidden sm:inline">Owner OS</span>
                                 </div>
                             </div>
-                            <div className="flex-1 max-w-xl mx-auto hidden lg:block relative">
+                            <div className="flex-1 max-w-xl mx-auto ml-3 lg:ml-auto relative">
                                 <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                                <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="ค้นหาลูกค้า..." className="w-full bg-slate-50 border rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="ค้นหาจากทุกข้อมูล (ชื่อ, เบอร์, จังหวัด...)" className="w-full bg-slate-50 border rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                             </div>
                         </div>
                         <div className="p-3 md:p-8 max-w-7xl mx-auto w-full">
